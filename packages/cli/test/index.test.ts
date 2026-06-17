@@ -17,6 +17,7 @@ describe("@evofork/cli", () => {
 
     expect(io.output()).toContain("EvoFork CLI");
     expect(io.output()).toContain("evo manifest validate");
+    expect(io.output()).toContain("evo db status");
     expect(io.output()).toContain("evo eval patch-boundary");
   });
 
@@ -591,6 +592,55 @@ describe("@evofork/cli", () => {
 
     const result = JSON.parse(io.output()) as { passed: boolean; details: string[] };
     expect(result.passed).toBe(true);
+  });
+
+  it("prints database migration status", async () => {
+    const io = createTestIo();
+
+    await expect(runCli(["db", "status", "--json"], io)).resolves.toBe(0);
+
+    const result = JSON.parse(io.output()) as {
+      migrations: Array<{ id: string; name: string; path: string }>;
+    };
+    expect(result.migrations).toHaveLength(1);
+    expect(result.migrations[0]).toMatchObject({
+      id: "0001_initial",
+      name: "0001_initial.sql"
+    });
+  });
+
+  it("prints a dry-run database migration plan", async () => {
+    const io = createTestIo();
+
+    await expect(runCli(["db", "migrate", "--dry-run", "--json"], io)).resolves.toBe(0);
+
+    const result = JSON.parse(io.output()) as {
+      dryRun: boolean;
+      migrations: Array<{ id: string }>;
+      applied: Array<{ id: string }>;
+    };
+    expect(result.dryRun).toBe(true);
+    expect(result.migrations.map((migration) => migration.id)).toEqual(["0001_initial"]);
+    expect(result.applied).toEqual([]);
+  });
+
+  it("requires a database URL for non-dry-run migrations", async () => {
+    const io = createTestIo();
+    const previousDatabaseUrl = process.env.DATABASE_URL;
+
+    delete process.env.DATABASE_URL;
+
+    try {
+      await expect(runCli(["db", "migrate"], io)).resolves.toBe(1);
+
+      expect(io.errorOutput()).toContain("--database-url or DATABASE_URL");
+    } finally {
+      if (previousDatabaseUrl === undefined) {
+        delete process.env.DATABASE_URL;
+      } else {
+        process.env.DATABASE_URL = previousDatabaseUrl;
+      }
+    }
   });
 
   it("prints a passing eval report for authorized changed files", async () => {

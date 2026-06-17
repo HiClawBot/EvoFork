@@ -1,6 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { evoforkTableNames, schema } from "../src/index.js";
+import {
+  evoforkTableNames,
+  formatMigrationPlan,
+  listMigrationFiles,
+  schema
+} from "../src/index.js";
 
 describe("@evofork/db", () => {
   it("exports the v0.1 persistence schema tables", () => {
@@ -37,5 +42,12 @@ describe("@evofork/db", () => {
     expect(migration).toContain("rollout_percentage >= 0");
     expect(migration).toContain("rollout_percentage <= 100");
     expect(migration).toContain("'reverted'");
+  });
+
+  it("lists migrations in deterministic order", async () => {
+    const migrations = await listMigrationFiles();
+
+    expect(migrations.map((migration) => migration.name)).toEqual(["0001_initial.sql"]);
+    expect(formatMigrationPlan(migrations)[0]).toContain("0001_initial");
   });
 });

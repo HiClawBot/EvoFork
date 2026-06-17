@@ -22,9 +22,14 @@ docker compose up -d postgres
 Apply the initial migration:
 
 ```bash
-psql "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork" \
-  -f packages/db/migrations/0001_initial.sql
+pnpm evo db status
+pnpm evo db migrate --dry-run
+pnpm evo db migrate \
+  --database-url "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork"
 ```
+
+`evo db migrate` shells out to the local `psql` executable. Install PostgreSQL
+client tools before running non-dry-run migrations.
 
 The local password in `docker-compose.yml` is for development only. Do not reuse
 it in production or shared infrastructure.
@@ -53,9 +58,14 @@ docker compose up -d postgres
 执行初始 migration：
 
 ```bash
-psql "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork" \
-  -f packages/db/migrations/0001_initial.sql
+pnpm evo db status
+pnpm evo db migrate --dry-run
+pnpm evo db migrate \
+  --database-url "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork"
 ```
+
+`evo db migrate` 会调用本机 `psql` 可执行文件。非 dry-run 执行前需要先安装
+PostgreSQL client tools。
 
 `docker-compose.yml` 中的本地密码只用于开发环境，不要在生产或共享基础设施中复用。
 

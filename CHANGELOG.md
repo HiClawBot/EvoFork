@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.1.6 - Database Migration CLI
+
+Database migrations can now be inspected and applied from the EvoFork CLI.
+
+### Added
+
+- `pnpm evo db status` for listing packaged SQL migrations.
+- `pnpm evo db migrate --dry-run` for previewing migration application.
+- `pnpm evo db migrate --database-url <url>` for applying migrations through local `psql`.
+- Shared migration discovery helpers in `@evofork/db`.
+
+### Changed
+
+- `@evofork/cli` now depends on `@evofork/db` for migration metadata.
+- README and database docs include the new migration CLI.
+- Workspace package versions are bumped to `0.1.6`.
+
+### Notes
+
+The migration CLI intentionally uses the local `psql` executable and does not add a database driver to the API server. The v0.1 demo remains database-optional.
+
 ## v0.1.5 - PostgreSQL Schema Preview
 
 The first database persistence preview is available without changing the default local demo mode.
