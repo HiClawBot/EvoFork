@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.3 - Local Branch Lifecycle
+
+Local branch lifecycle controls for the v0.1 Developer Preview.
+
+### Added
+
+- `pnpm evo branch list` for inspecting local branch fixtures.
+- `pnpm evo branch approve`, `rollout`, `revert`, and `sunset` commands backed by `.evofork/demo-seed.json`.
+- Local audit log entries for CLI branch lifecycle changes.
+- Admin Console seed fallback can read audit logs from local demo seed state.
+
+### Changed
+
+- `pnpm evo demo seed` now writes branch audit history alongside demo signals and branch fixtures.
+- Quickstart documents local branch rollback and draft branch approval/rollout.
+
+### Notes
+
+Branch lifecycle commands operate on local ignored run state by default. They do not call production APIs or deploy changes.
+
 ## v0.1.2 - Local Demo Persistence
 
 Small local-demo persistence improvements for the v0.1 Developer Preview.

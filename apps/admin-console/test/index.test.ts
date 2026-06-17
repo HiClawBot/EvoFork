@@ -68,6 +68,20 @@ describe(appId, () => {
             status: "active",
             rolloutPercentage: 100
           }
+        ],
+        auditLogs: [
+          {
+            id: "audit_demo_seed_rollout",
+            appId: "demo-saas",
+            actor: "demo_seed",
+            event: "branch_rollout_changed",
+            resourceType: "branch",
+            resourceId: "br_demo_seed",
+            payload: {
+              rolloutPercentage: 100
+            },
+            createdAt: "2026-06-17T00:00:00.000Z"
+          }
         ]
       }),
       "utf8"
@@ -79,5 +93,10 @@ describe(appId, () => {
     expect(seed.signals[0].signalType).toBe("pricing_confusion");
     expect(seed.branches).toHaveLength(1);
     expect(seed.branches[0].status).toBe("active");
+    expect(seed.auditLogs).toHaveLength(1);
+    expect(seed.auditLogs[0]).toMatchObject({
+      event: "branch_rollout_changed",
+      resourceId: "br_demo_seed"
+    });
   });
 });

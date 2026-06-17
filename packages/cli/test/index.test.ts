@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -142,6 +142,7 @@ describe("@evofork/cli", () => {
       surfaceId: string;
       signals: Array<{ id: string; piiRemoved: boolean; llmEligible: boolean }>;
       branches: Array<{ id: string; branchName: string; status: string }>;
+      auditLogs: Array<{ event: string; resourceId: string }>;
     };
 
     expect(io.output()).toContain("Seeded 3 demo signals");
@@ -157,6 +158,11 @@ describe("@evofork/cli", () => {
       branchName: "pricing.hero.new-user-clarity.v1",
       status: "active"
     });
+    expect(seed.auditLogs.map((log) => log.event)).toEqual([
+      "branch_created",
+      "branch_approved",
+      "branch_rollout_changed"
+    ]);
   });
 
   it("tests route matching from the CLI", async () => {
@@ -257,6 +263,191 @@ describe("@evofork/cli", () => {
 
     expect(routeIo.output()).toContain("Matched branch: pricing.hero.new-user-clarity.v1");
     expect(routeIo.output()).toContain("Reason: matched_segment_and_rollout");
+  });
+
+  it("lists local branch fixtures", async () => {
+    const seedIo = createTestIo();
+    const listIo = createTestIo();
+    const outputPath = join(await mkdtemp(join(tmpdir(), "evofork-branch-list-")), "seed.json");
+
+    await expect(
+      runCli(["demo", "seed", "--output", outputPath, "--manifest", manifestPath], seedIo)
+    ).resolves.toBe(0);
+
+    await expect(
+      runCli(["branch", "list", "--state", outputPath, "--surface", "pricing.hero"], listIo)
+    ).resolves.toBe(0);
+
+    expect(listIo.output()).toContain("br_demo_seed\tpricing.hero\tactive\t100%");
+    expect(listIo.output()).toContain("pricing.hero.new-user-clarity.v1");
+  });
+
+  it("approves and rolls out draft local branch fixtures", async () => {
+    const approveIo = createTestIo();
+    const rolloutIo = createTestIo();
+    const outputPath = join(await mkdtemp(join(tmpdir(), "evofork-branch-rollout-")), "seed.json");
+
+    await writeFile(
+      outputPath,
+      `${JSON.stringify(
+        {
+          appId: "demo-saas",
+          surfaceId: "pricing.hero",
+          branches: [
+            {
+              id: "br_draft",
+              appId: "demo-saas",
+              surfaceId: "pricing.hero",
+              branchName: "pricing.hero.new-user-clarity.v1",
+              status: "draft",
+              targetSegments: {
+                lifecycle_stage: "new_user"
+              },
+              rolloutPercentage: 0,
+              priority: 10
+            }
+          ],
+          auditLogs: []
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await expect(
+      runCli(
+        [
+          "branch",
+          "approve",
+          "br_draft",
+          "--state",
+          outputPath,
+          "--actor",
+          "maintainer",
+          "--json"
+        ],
+        approveIo
+      )
+    ).resolves.toBe(0);
+
+    const approved = JSON.parse(approveIo.output()) as {
+      branch: { status: string; approvedBy: string };
+      auditLog: { event: string };
+    };
+    expect(approved.branch.status).toBe("canary");
+    expect(approved.branch.approvedBy).toBe("maintainer");
+    expect(approved.auditLog.event).toBe("branch_approved");
+
+    await expect(
+      runCli(
+        [
+          "branch",
+          "rollout",
+          "br_draft",
+          "--percentage",
+          "25",
+          "--state",
+          outputPath,
+          "--actor",
+          "maintainer",
+          "--json"
+        ],
+        rolloutIo
+      )
+    ).resolves.toBe(0);
+
+    const state = JSON.parse(await readFile(outputPath, "utf8")) as {
+      branches: Array<{ status: string; rolloutPercentage: number }>;
+      auditLogs: Array<{ event: string }>;
+    };
+
+    expect(state.branches[0]).toMatchObject({
+      status: "canary",
+      rolloutPercentage: 25
+    });
+    expect(state.auditLogs.map((log) => log.event)).toEqual([
+      "branch_approved",
+      "branch_rollout_changed"
+    ]);
+  });
+
+  it("requires a rollout percentage for local branch rollout", async () => {
+    const io = createTestIo();
+
+    await expect(
+      runCli(["branch", "rollout", "br_draft", "--state", "missing.json"], io)
+    ).resolves.toBe(1);
+
+    expect(io.errorOutput()).toContain("--percentage is required");
+  });
+
+  it("reverts local branch fixtures and routing falls back to default", async () => {
+    const seedIo = createTestIo();
+    const revertIo = createTestIo();
+    const routeIo = createTestIo();
+    const outputPath = join(await mkdtemp(join(tmpdir(), "evofork-branch-revert-")), "seed.json");
+
+    await expect(
+      runCli(["demo", "seed", "--output", outputPath, "--manifest", manifestPath], seedIo)
+    ).resolves.toBe(0);
+
+    await expect(
+      runCli(
+        [
+          "branch",
+          "revert",
+          "br_demo_seed",
+          "--reason",
+          "guardrail increased",
+          "--state",
+          outputPath,
+          "--json"
+        ],
+        revertIo
+      )
+    ).resolves.toBe(0);
+
+    const state = JSON.parse(await readFile(outputPath, "utf8")) as {
+      branches: Array<{ status: string; rolloutPercentage: number; revertReason?: string }>;
+      auditLogs: Array<{ event: string; resourceId: string }>;
+    };
+
+    expect(state.branches[0]).toMatchObject({
+      status: "reverted",
+      rolloutPercentage: 0,
+      revertReason: "guardrail increased"
+    });
+    expect(state.auditLogs.at(-1)).toMatchObject({
+      event: "branch_reverted",
+      resourceId: "br_demo_seed"
+    });
+
+    await expect(
+      runCli(
+        [
+          "route",
+          "test",
+          "pricing.hero",
+          "--user",
+          "user_123",
+          "--segment",
+          "lifecycle_stage=new_user",
+          "--branches",
+          outputPath,
+          "--json",
+          "--manifest",
+          manifestPath
+        ],
+        routeIo
+      )
+    ).resolves.toBe(0);
+
+    const resolved = JSON.parse(routeIo.output()) as { variant: string; reason: string };
+    expect(resolved).toMatchObject({
+      variant: "default",
+      reason: "default_fallback"
+    });
   });
 
   it("passes eval patch-boundary for authorized changed files", async () => {
