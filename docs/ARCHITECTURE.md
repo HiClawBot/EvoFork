@@ -58,6 +58,12 @@ Resolves variants based on:
 - sticky hash
 - opt-out status
 
+### Rollout Observer
+
+Evaluates local canary metrics for a governed branch and returns an auditable
+`promote`, `hold`, or `rollback` recommendation. It does not deploy or mutate
+branch state.
+
 ### Admin Console
 
 Provides:
@@ -82,6 +88,7 @@ sequenceDiagram
     participant Eval as Eval Gate
     participant Registry as Branch Registry
     participant Router
+    participant Observer as Rollout Observer
 
     User->>App: uses product
     App->>SDK: feedback / events
@@ -96,6 +103,8 @@ sequenceDiagram
     SDK->>Router: resolve variant
     Router->>SDK: variant
     SDK->>App: render branch or fallback
+    API->>Observer: canary metrics
+    Observer->>API: rollout recommendation
 ```
 
 ## Deployment modes

@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.3.0 - Rollout Observer
+
+The first v0.3 progressive-delivery component is now available.
+
+### Added
+
+- `@evofork/rollout-observer` service package for deterministic canary metric analysis.
+- `pnpm evo observe fixtures` and `pnpm evo observe canary` CLI commands.
+- Canary fixtures for healthy, regression, and insufficient-sample rollout states.
+- Bilingual Rollout Observer documentation and Quickstart coverage.
+
+### Changed
+
+- README status and roadmap now describe v0.3 as local-first canary observation.
+- Release checklist includes a canary observation smoke check.
+- Workspace package versions are bumped to `0.3.0`.
+
+### Notes
+
+Rollout Observer returns auditable `promote`, `hold`, or `rollback`
+recommendations only. It does not deploy, merge, mutate branch state, or change
+production traffic.
+
 ## v0.2.3 - Admin Governance Visibility
 
 The Admin Console now surfaces governance state in the local demo loop.

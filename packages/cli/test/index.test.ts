@@ -21,6 +21,7 @@ describe("@evofork/cli", () => {
     expect(io.output()).toContain("evo policy check");
     expect(io.output()).toContain("evo eval fixture");
     expect(io.output()).toContain("evo eval patch-boundary");
+    expect(io.output()).toContain("evo observe canary");
   });
 
   it("validates a manifest file", async () => {
@@ -315,6 +316,101 @@ describe("@evofork/cli", () => {
       reason: "personalization_opt_out",
       sticky: false
     });
+  });
+
+  it("lists canary observation fixtures", async () => {
+    const io = createTestIo();
+
+    await expect(runCli(["observe", "fixtures", "--json"], io)).resolves.toBe(0);
+
+    const output = JSON.parse(io.output()) as {
+      fixtures: Array<{ id: string; surfaceId: string }>;
+    };
+    expect(output.fixtures.map((fixture) => fixture.id)).toEqual([
+      "healthy",
+      "regression",
+      "insufficient"
+    ]);
+    expect(output.fixtures[0].surfaceId).toBe("pricing.hero");
+  });
+
+  it("recommends promotion for a healthy canary fixture", async () => {
+    const io = createTestIo();
+
+    await expect(
+      runCli(
+        ["observe", "canary", "--fixture", "healthy", "--manifest", manifestPath, "--json"],
+        io
+      )
+    ).resolves.toBe(0);
+
+    const report = JSON.parse(io.output()) as {
+      status: string;
+      recommendation: string;
+      audit: { event: string };
+    };
+    expect(report.status).toBe("passed");
+    expect(report.recommendation).toBe("promote");
+    expect(report.audit.event).toBe("canary_observation_completed");
+  });
+
+  it("returns non-zero when a canary fixture recommends rollback", async () => {
+    const io = createTestIo();
+
+    await expect(
+      runCli(
+        ["observe", "canary", "--fixture", "regression", "--manifest", manifestPath, "--json"],
+        io
+      )
+    ).resolves.toBe(1);
+
+    const report = JSON.parse(io.output()) as { recommendation: string; reasons: string[] };
+    expect(report.recommendation).toBe("rollback");
+    expect(report.reasons.join("\n")).toContain("support_ticket_rate");
+  });
+
+  it("reads canary observation input from JSON", async () => {
+    const io = createTestIo();
+    const inputPath = join(await mkdtemp(join(tmpdir(), "evofork-canary-input-")), "input.json");
+
+    await writeFile(
+      inputPath,
+      `${JSON.stringify(
+        {
+          appId: "demo-saas",
+          surfaceId: "pricing.hero",
+          branchId: "br_custom",
+          branchName: "pricing.hero.custom.v1",
+          rolloutPercentage: 20,
+          sampleSize: 50,
+          minSampleSize: 100,
+          metrics: [
+            {
+              name: "pricing_to_signup_conversion",
+              baseline: 0.12,
+              canary: 0.13,
+              direction: "increase"
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await expect(
+      runCli(["observe", "canary", "--input", inputPath, "--manifest", manifestPath, "--json"], io)
+    ).resolves.toBe(0);
+
+    const report = JSON.parse(io.output()) as {
+      branchName: string;
+      recommendation: string;
+      reasons: string[];
+    };
+    expect(report.branchName).toBe("pricing.hero.custom.v1");
+    expect(report.recommendation).toBe("hold");
+    expect(report.reasons.join("\n")).toContain("below minimum");
   });
 
   it("tests route matching from a branch fixture", async () => {

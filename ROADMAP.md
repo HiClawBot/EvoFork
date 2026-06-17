@@ -38,8 +38,8 @@ Goal: connect version forks to real metrics.
 
 - OpenTelemetry adapter
 - Metrics dashboard
-- Automated rollback rules
 - Canary analysis
+- Rollout health recommendations
 - Branch promotion workflow
 - Branch sunset workflow
 - Argo Rollouts adapter prototype

@@ -42,6 +42,13 @@ import { generateInsightRfc } from "@evofork/insight-worker";
 import { preparePullRequest } from "@evofork/patch-agent";
 import { evaluatePolicy, type PolicyDecision } from "@evofork/policy-engine";
 import { resolveVariant, type RouterBranch } from "@evofork/router";
+import {
+  analyzeCanary,
+  getCanaryFixture,
+  isCanaryFixtureId,
+  listCanaryFixtures,
+  type CanaryObservationInput
+} from "@evofork/rollout-observer";
 
 export const moduleId = "@evofork/cli";
 
@@ -64,6 +71,8 @@ const valueOptionNames = new Set([
   "database-url",
   "diff",
   "file",
+  "fixture",
+  "input",
   "migrations-dir",
   "output",
   "percentage",
@@ -126,6 +135,14 @@ export async function runCli(
 
     if (namespace === "route" && command === "test") {
       return await routeTestCommand(parsedArgs.manifestPath, commandArgs, io);
+    }
+
+    if (namespace === "observe" && command === "canary") {
+      return await observeCanaryCommand(parsedArgs.manifestPath, commandArgs, io);
+    }
+
+    if (namespace === "observe" && command === "fixtures") {
+      return observeFixturesCommand(commandArgs, io);
     }
 
     if (namespace === "branch" && command === "list") {
@@ -264,6 +281,8 @@ function printHelp(io: CliIO): void {
   io.stdout.log("  evo policy check --surface <surfaceId> [--change <category>] [--rollout <0-100>] [--approved] [--json]");
   io.stdout.log("  evo demo seed [--surface <surfaceId>] [--count <n>] [--output <path>] [--json]");
   io.stdout.log("  evo route test <surfaceId> --user <userId> [--segment <key=value>] [--rollout <0-100>] [--json]");
+  io.stdout.log("  evo observe canary [--fixture <id>] [--input <path>] [--json]");
+  io.stdout.log("  evo observe fixtures [--json]");
   io.stdout.log("  evo branch list [--state <path>] [--surface <surfaceId>] [--status <status>] [--json]");
   io.stdout.log("  evo branch create --surface <surfaceId> [--branch <name>] [--segment <key=value>] [--state <path>] [--json]");
   io.stdout.log("  evo branch approve <branchId> [--state <path>] [--actor <name>] [--json]");
@@ -592,6 +611,85 @@ async function routeTestCommand(
   return 0;
 }
 
+async function observeCanaryCommand(
+  manifestPath: string,
+  args: string[],
+  io: CliIO
+): Promise<number> {
+  const input = await readCanaryObservationInput(args);
+  const manifest = await loadManifest(manifestPath);
+  const surface = findSurface(manifest, input.surfaceId);
+
+  if (!surface) {
+    throw new Error(`Surface not found: ${input.surfaceId}`);
+  }
+
+  if (manifest.app.id !== input.appId) {
+    throw new Error(`Canary appId ${input.appId} does not match manifest app ${manifest.app.id}`);
+  }
+
+  const report = analyzeCanary(input);
+
+  if (hasFlag(args, "json")) {
+    io.stdout.log(JSON.stringify(report, null, 2));
+    return report.recommendation === "rollback" ? 1 : 0;
+  }
+
+  io.stdout.log(`Canary: ${report.status}`);
+  io.stdout.log(`Recommendation: ${report.recommendation}`);
+  io.stdout.log(`Surface: ${report.surfaceId}`);
+  io.stdout.log(`Branch: ${report.branchName ?? report.branchId}`);
+  io.stdout.log(`Rollout: ${report.rolloutPercentage}%`);
+  io.stdout.log(`Sample: ${report.sampleSize}/${report.minSampleSize}`);
+  io.stdout.log("Reasons:");
+
+  for (const reason of report.reasons) {
+    io.stdout.log(`- ${reason}`);
+  }
+
+  io.stdout.log("Metrics:");
+
+  for (const metric of report.metrics) {
+    io.stdout.log(
+      `- ${metric.name}\t${metric.status}\tchange=${metric.changePercent}%\tregression=${metric.regressionPercent}%`
+    );
+  }
+
+  io.stdout.log(`Audit: ${report.audit.event}`);
+  return report.recommendation === "rollback" ? 1 : 0;
+}
+
+function observeFixturesCommand(args: string[], io: CliIO): number {
+  const fixtures = listCanaryFixtures();
+
+  if (hasFlag(args, "json")) {
+    io.stdout.log(
+      JSON.stringify(
+        {
+          fixtures: fixtures.map((fixture) => ({
+            id: fixture.id,
+            appId: fixture.input.appId,
+            surfaceId: fixture.input.surfaceId,
+            branchId: fixture.input.branchId,
+            sampleSize: fixture.input.sampleSize
+          }))
+        },
+        null,
+        2
+      )
+    );
+    return 0;
+  }
+
+  for (const fixture of fixtures) {
+    io.stdout.log(
+      `${fixture.id}\t${fixture.input.surfaceId}\t${fixture.input.rolloutPercentage}%\t${fixture.input.sampleSize}`
+    );
+  }
+
+  return 0;
+}
+
 async function branchListCommand(args: string[], io: CliIO): Promise<number> {
   const state = await readLocalDemoState(readBranchStatePath(args));
   const surfaceId = readOption(args, "surface");
@@ -903,6 +1001,74 @@ async function readRouteBranches(path: string): Promise<RouterBranch[] | undefin
   } catch {
     return undefined;
   }
+}
+
+async function readCanaryObservationInput(args: string[]): Promise<CanaryObservationInput> {
+  const inputPath = readOption(args, "input");
+
+  if (inputPath) {
+    return parseCanaryObservationInput(JSON.parse(await readFile(inputPath, "utf8")));
+  }
+
+  const fixtureId = readOption(args, "fixture") ?? "healthy";
+
+  if (!isCanaryFixtureId(fixtureId)) {
+    throw new Error(`Unknown canary fixture: ${fixtureId}`);
+  }
+
+  return getCanaryFixture(fixtureId);
+}
+
+function parseCanaryObservationInput(value: unknown): CanaryObservationInput {
+  if (!isRecord(value)) {
+    throw new Error("Canary input must be a JSON object");
+  }
+
+  const metrics = value.metrics;
+
+  if (!Array.isArray(metrics)) {
+    throw new Error("Canary input metrics must be an array");
+  }
+
+  return {
+    appId: readStringField(value, "appId"),
+    surfaceId: readStringField(value, "surfaceId"),
+    branchId: readStringField(value, "branchId"),
+    ...(typeof value.branchName === "string" ? { branchName: value.branchName } : {}),
+    rolloutPercentage: readNumberField(value, "rolloutPercentage"),
+    sampleSize: readNumberField(value, "sampleSize"),
+    ...(typeof value.minSampleSize === "number" ? { minSampleSize: value.minSampleSize } : {}),
+    metrics: metrics.map(parseCanaryMetricInput),
+    ...(Array.isArray(value.guardrailFailures)
+      ? { guardrailFailures: value.guardrailFailures.map((failure) => String(failure)) }
+      : {}),
+    ...(typeof value.observedAt === "string" ? { observedAt: value.observedAt } : {})
+  };
+}
+
+function parseCanaryMetricInput(value: unknown): CanaryObservationInput["metrics"][number] {
+  if (!isRecord(value)) {
+    throw new Error("Each canary metric must be a JSON object");
+  }
+
+  const direction = readStringField(value, "direction");
+
+  if (direction !== "increase" && direction !== "decrease") {
+    throw new Error(`Invalid canary metric direction: ${direction}`);
+  }
+
+  return {
+    name: readStringField(value, "name"),
+    baseline: readNumberField(value, "baseline"),
+    canary: readNumberField(value, "canary"),
+    direction,
+    ...(typeof value.warnRegressionPercent === "number"
+      ? { warnRegressionPercent: value.warnRegressionPercent }
+      : {}),
+    ...(typeof value.failRegressionPercent === "number"
+      ? { failRegressionPercent: value.failRegressionPercent }
+      : {})
+  };
 }
 
 function createDemoBranch(appId: string, surfaceId: string, createdAt: string): BranchRecord {
@@ -1334,6 +1500,26 @@ function isRouterBranch(value: unknown): value is RouterBranch {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function readStringField(value: Record<string, unknown>, name: string): string {
+  const field = value[name];
+
+  if (typeof field !== "string" || field.trim() === "") {
+    throw new Error(`Canary input field ${name} must be a non-empty string`);
+  }
+
+  return field;
+}
+
+function readNumberField(value: Record<string, unknown>, name: string): number {
+  const field = value[name];
+
+  if (typeof field !== "number" || !Number.isFinite(field)) {
+    throw new Error(`Canary input field ${name} must be a finite number`);
+  }
+
+  return field;
 }
 
 function readPositionalArgs(args: string[]): string[] {

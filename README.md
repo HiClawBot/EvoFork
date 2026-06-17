@@ -52,15 +52,16 @@ It does not:
 ## Status
 
 ```text
-Project status: v0.2 Developer Preview
+Project status: v0.3 Developer Preview
 Primary language: TypeScript
 Initial target: Next.js + Node.js applications
 License: Apache-2.0
 ```
 
-v0.2 is a local-first developer preview. It includes the minimal trusted loop,
-plus initial governance policy checks, with mock/local adapters so the demo runs
-without production LLM, GitHub, or database credentials.
+v0.3 is a local-first developer preview. It includes the minimal trusted loop,
+initial governance policy checks, and deterministic canary observation, with
+mock/local adapters so the demo runs without production LLM, GitHub, database,
+or deployment credentials.
 
 ---
 
@@ -177,6 +178,7 @@ evofork/
 │   ├── patch-agent/
 │   ├── eval-gate/
 │   ├── branch-registry/
+│   ├── rollout-observer/
 │   └── router/
 ├── apps/
 │   ├── admin-console/
@@ -232,6 +234,13 @@ pnpm evo route test pricing.hero \
   --segment lifecycle_stage=new_user
 ```
 
+Observe canary rollout health locally:
+
+```bash
+pnpm evo observe fixtures
+pnpm evo observe canary --fixture healthy --json
+```
+
 Manage local branch state without production credentials:
 
 ```bash
@@ -272,8 +281,9 @@ preview, branch registration, segment routing, and branch revert. The Admin
 Console shows governance status for data source, Eval Gate, policy audit counts,
 and rollback state. The default API server uses in-memory repositories.
 
-See [Quickstart](./docs/QUICKSTART.md) for the full local walkthrough and
-[Safety Fixtures](./docs/SAFETY_FIXTURES.md) for reusable safety checks.
+See [Quickstart](./docs/QUICKSTART.md) for the full local walkthrough,
+[Safety Fixtures](./docs/SAFETY_FIXTURES.md) for reusable safety checks, and
+[Rollout Observer](./docs/ROLLOUT_OBSERVER.md) for canary recommendations.
 
 Optional PostgreSQL schema preview:
 
@@ -285,7 +295,7 @@ pnpm evo db migrate \
   --database-url "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork"
 ```
 
-The database schema is available in `@evofork/db`, but the v0.1 demo still runs
+The database schema is available in `@evofork/db`, but the v0.3 demo still runs
 without a database by default.
 
 ---
@@ -354,7 +364,7 @@ POST /v1/events
 ```
 
 RFC and PR generation are available through the CLI and the local admin console
-in v0.1. Production GitHub writes are intentionally behind adapter boundaries
+in v0.3. Production GitHub writes are intentionally behind adapter boundaries
 and are not invoked by default.
 
 ---
@@ -386,9 +396,10 @@ and are not invoked by default.
 ### v0.3 Progressive Delivery
 
 - Canary analysis
-- Argo Rollouts adapter
-- Automated rollback
+- Rollout health recommendations
+- Argo Rollouts adapter prototype
 - Branch promotion/sunset workflows
+- No automatic deployment or rollback by default
 
 ---
 
@@ -406,6 +417,7 @@ and are not invoked by default.
 - [Policy Engine](./docs/POLICY_ENGINE.md)
 - [Safety Fixtures](./docs/SAFETY_FIXTURES.md)
 - [Eval Gate](./docs/EVAL_GATE.md)
+- [Rollout Observer](./docs/ROLLOUT_OBSERVER.md)
 - [Router](./docs/ROUTER.md)
 - [Release Checklist](./docs/RELEASE_CHECKLIST.md)
 - [Codex Tasks](./CODEX_TASKS.md)
@@ -483,14 +495,15 @@ EvoFork 不是黑盒自动写码系统。
 ## 状态
 
 ```text
-项目状态：v0.2 Developer Preview
+项目状态：v0.3 Developer Preview
 主要语言：TypeScript
 初始目标：Next.js + Node.js 应用
 许可证：Apache-2.0
 ```
 
-v0.2 是本地优先的开发者预览版，包含最小可信闭环和初始治理 policy 校验。
-它使用 mock/local adapter，因此本地演示不需要生产 LLM、GitHub 或数据库凭证。
+v0.3 是本地优先的开发者预览版，包含最小可信闭环、初始治理 policy 校验和
+确定性的 canary 观测。它使用 mock/local adapter，因此本地演示不需要生产
+LLM、GitHub、数据库或部署凭证。
 
 ---
 
@@ -623,6 +636,13 @@ pnpm evo route test pricing.hero \
   --segment lifecycle_stage=new_user
 ```
 
+本地观测 canary rollout 健康状态：
+
+```bash
+pnpm evo observe fixtures
+pnpm evo observe canary --fixture healthy --json
+```
+
 不使用生产凭证也可以管理本地 branch 状态：
 
 ```bash
@@ -662,7 +682,8 @@ Admin Console 会显示数据来源、Eval Gate、policy audit 计数和 rollbac
 默认 API server 使用内存仓库。
 
 完整本地演示步骤见 [Quickstart](./docs/QUICKSTART.md)，可复用安全检查见
-[Safety Fixtures](./docs/SAFETY_FIXTURES.md)。
+[Safety Fixtures](./docs/SAFETY_FIXTURES.md)，canary 建议见
+[Rollout Observer](./docs/ROLLOUT_OBSERVER.md)。
 
 可选 PostgreSQL schema 预览：
 
@@ -674,7 +695,7 @@ pnpm evo db migrate \
   --database-url "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork"
 ```
 
-数据库 schema 位于 `@evofork/db`，但 v0.1 demo 默认仍不需要数据库。
+数据库 schema 位于 `@evofork/db`，但 v0.3 demo 默认仍不需要数据库。
 
 ---
 
@@ -697,7 +718,7 @@ POST /v1/variants/resolve
 POST /v1/events
 ```
 
-v0.1 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 GitHub 写入被放在 adapter 边界之后，默认不会调用。
+v0.3 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 GitHub 写入被放在 adapter 边界之后，默认不会调用。
 
 ---
 
@@ -728,9 +749,10 @@ v0.1 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 G
 ### v0.3 Progressive Delivery
 
 - Canary analysis
-- Argo Rollouts adapter
-- Automated rollback
+- Rollout health recommendations
+- Argo Rollouts adapter prototype
 - Branch promotion/sunset workflows
+- 默认不自动部署或回滚
 
 ---
 
@@ -748,6 +770,7 @@ v0.1 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 G
 - [Policy Engine](./docs/POLICY_ENGINE.md)
 - [Safety Fixtures](./docs/SAFETY_FIXTURES.md)
 - [Eval Gate](./docs/EVAL_GATE.md)
+- [Rollout Observer](./docs/ROLLOUT_OBSERVER.md)
 - [Router](./docs/ROUTER.md)
 - [发布清单](./docs/RELEASE_CHECKLIST.md)
 - [Codex 任务](./CODEX_TASKS.md)
