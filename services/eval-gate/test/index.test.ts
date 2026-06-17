@@ -64,6 +64,23 @@ describe(serviceId, () => {
     expect(result.details.join("\n")).toContain("secrets");
   });
 
+  it("allows explicitly approved high-risk categories without hiding other violations", () => {
+    const allowed = evaluateSecurityPolicy({
+      manifest,
+      changedFiles: ["packages/db/migrations/0001_initial.sql"],
+      allowedSecurityCategories: ["database_schema"]
+    });
+    const stillBlocked = evaluateSecurityPolicy({
+      manifest,
+      changedFiles: ["packages/db/migrations/0001_initial.sql", ".env.local"],
+      allowedSecurityCategories: ["database_schema"]
+    });
+
+    expect(allowed.passed).toBe(true);
+    expect(stillBlocked.passed).toBe(false);
+    expect(stillBlocked.details.join("\n")).toContain("secrets");
+  });
+
   it("creates a failed JSON-style eval report when checks fail", () => {
     const report = runEvalGate({
       manifest,

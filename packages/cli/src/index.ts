@@ -42,6 +42,7 @@ export type CliIO = {
 const defaultManifestPath = "evo.manifest.yaml";
 const valueOptionNames = new Set([
   "actor",
+  "allow-risk",
   "branch",
   "branch-id",
   "branches",
@@ -235,7 +236,7 @@ function printHelp(io: CliIO): void {
   io.stdout.log("  evo branch revert <branchId> --reason <reason> [--state <path>] [--actor <name>] [--json]");
   io.stdout.log("  evo branch sunset <branchId> [--state <path>] [--actor <name>] [--json]");
   io.stdout.log("  evo eval patch-boundary [--surface <surfaceId>] [--changed-file <path>] [--diff <path>]");
-  io.stdout.log("  evo eval security [--changed-file <path>] [--diff <path>]");
+  io.stdout.log("  evo eval security [--changed-file <path>] [--diff <path>] [--allow-risk <category>]");
   io.stdout.log("  evo eval report [--surface <surfaceId>] [--changed-file <path>] [--diff <path>]");
 }
 
@@ -807,7 +808,8 @@ async function readEvalInput(manifestPath: string, args: string[]): Promise<Eval
     manifest,
     surfaceId,
     changedFiles,
-    diff
+    diff,
+    allowedSecurityCategories: readRepeatedOption(args, "allow-risk")
   };
 }
 
