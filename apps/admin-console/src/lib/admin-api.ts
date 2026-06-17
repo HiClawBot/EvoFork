@@ -63,13 +63,14 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
   const seed = await readDemoSeed();
   const useSeedSignals = signals.body.signals.length === 0 && seed.signals.length > 0;
   const useSeedBranches = branches.body.branches.length === 0 && seed.branches.length > 0;
+  const useSeedAuditLogs = auditLogs.body.auditLogs.length === 0 && seed.auditLogs.length > 0;
 
   return {
     apiAvailable: signals.ok && branches.ok && auditLogs.ok,
-    seedLoaded: useSeedSignals || useSeedBranches,
+    seedLoaded: useSeedSignals || useSeedBranches || useSeedAuditLogs,
     signals: useSeedSignals ? seed.signals : signals.body.signals,
     branches: useSeedBranches ? seed.branches : branches.body.branches,
-    auditLogs: auditLogs.body.auditLogs
+    auditLogs: useSeedAuditLogs ? seed.auditLogs : auditLogs.body.auditLogs
   };
 }
 

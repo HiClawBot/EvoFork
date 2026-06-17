@@ -1,8 +1,9 @@
-import type { AdminBranch, AdminSignal } from "./admin-api";
+import type { AdminAuditLog, AdminBranch, AdminSignal } from "./admin-api";
 
 export type DemoSeedState = {
   signals: AdminSignal[];
   branches: AdminBranch[];
+  auditLogs: AdminAuditLog[];
 };
 
 export async function readDemoSeed(path = process.env.EVOFORK_DEMO_SEED_PATH): Promise<DemoSeedState> {
@@ -18,7 +19,8 @@ export async function readDemoSeed(path = process.env.EVOFORK_DEMO_SEED_PATH): P
 
     return {
       signals: readSignals(parsed),
-      branches: readBranches(parsed)
+      branches: readBranches(parsed),
+      auditLogs: readAuditLogs(parsed)
     };
   } catch {
     return emptySeed();
@@ -28,7 +30,8 @@ export async function readDemoSeed(path = process.env.EVOFORK_DEMO_SEED_PATH): P
 function emptySeed(): DemoSeedState {
   return {
     signals: [],
-    branches: []
+    branches: [],
+    auditLogs: []
   };
 }
 
@@ -93,6 +96,36 @@ function readBranches(value: unknown): AdminBranch[] {
         branchName,
         status,
         rolloutPercentage
+      }
+    ];
+  });
+}
+
+function readAuditLogs(value: unknown): AdminAuditLog[] {
+  const auditLogs = isRecord(value) && Array.isArray(value.auditLogs) ? value.auditLogs : [];
+
+  return auditLogs.flatMap((auditLog): AdminAuditLog[] => {
+    if (!isRecord(auditLog)) {
+      return [];
+    }
+
+    const id = readString(auditLog.id);
+    const appId = readString(auditLog.appId);
+    const actor = readString(auditLog.actor);
+    const event = readString(auditLog.event);
+    const resourceId = readString(auditLog.resourceId);
+
+    if (!id || !appId || !actor || !event || !resourceId) {
+      return [];
+    }
+
+    return [
+      {
+        id,
+        appId,
+        actor,
+        event,
+        resourceId
       }
     ];
   });

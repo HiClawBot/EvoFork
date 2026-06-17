@@ -229,6 +229,13 @@ pnpm evo route test pricing.hero \
   --segment lifecycle_stage=new_user
 ```
 
+Manage local branch state without production credentials:
+
+```bash
+pnpm evo branch list
+pnpm evo branch revert br_demo_seed --reason "local rollback"
+```
+
 Run the local demo stack:
 
 ```bash
@@ -576,6 +583,13 @@ pnpm evo eval report \
 pnpm evo route test pricing.hero \
   --user user_123 \
   --segment lifecycle_stage=new_user
+```
+
+不使用生产凭证也可以管理本地 branch 状态：
+
+```bash
+pnpm evo branch list
+pnpm evo branch revert br_demo_seed --reason "local rollback"
 ```
 
 启动本地 demo：

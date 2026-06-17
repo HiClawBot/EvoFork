@@ -26,6 +26,29 @@ export type CliIO = {
 };
 
 const defaultManifestPath = "evo.manifest.yaml";
+const valueOptionNames = new Set([
+  "actor",
+  "branch",
+  "branch-id",
+  "branches",
+  "changed-file",
+  "changed-files",
+  "count",
+  "diff",
+  "file",
+  "output",
+  "percentage",
+  "reason",
+  "rfc",
+  "rollout",
+  "segment",
+  "state",
+  "status",
+  "surface",
+  "text",
+  "user",
+  "user-id"
+]);
 
 export async function runCli(
   args: string[] = process.argv.slice(2),
@@ -69,6 +92,26 @@ export async function runCli(
 
     if (namespace === "route" && command === "test") {
       return await routeTestCommand(parsedArgs.manifestPath, commandArgs, io);
+    }
+
+    if (namespace === "branch" && command === "list") {
+      return await branchListCommand(commandArgs, io);
+    }
+
+    if (namespace === "branch" && command === "approve") {
+      return await branchApproveCommand(commandArgs, io);
+    }
+
+    if (namespace === "branch" && command === "rollout") {
+      return await branchRolloutCommand(commandArgs, io);
+    }
+
+    if (namespace === "branch" && command === "revert") {
+      return await branchRevertCommand(commandArgs, io);
+    }
+
+    if (namespace === "branch" && command === "sunset") {
+      return await branchSunsetCommand(commandArgs, io);
     }
 
     if (namespace === "eval" && command === "patch-boundary") {
@@ -166,6 +209,11 @@ function printHelp(io: CliIO): void {
   io.stdout.log("  evo patch create-pr --rfc <rfcId> --surface <surfaceId> [--manifest <path>]");
   io.stdout.log("  evo demo seed [--surface <surfaceId>] [--count <n>] [--output <path>] [--json]");
   io.stdout.log("  evo route test <surfaceId> --user <userId> [--segment <key=value>] [--rollout <0-100>] [--json]");
+  io.stdout.log("  evo branch list [--state <path>] [--surface <surfaceId>] [--status <status>] [--json]");
+  io.stdout.log("  evo branch approve <branchId> [--state <path>] [--actor <name>] [--json]");
+  io.stdout.log("  evo branch rollout <branchId> --percentage <0-100> [--state <path>] [--actor <name>] [--json]");
+  io.stdout.log("  evo branch revert <branchId> --reason <reason> [--state <path>] [--actor <name>] [--json]");
+  io.stdout.log("  evo branch sunset <branchId> [--state <path>] [--actor <name>] [--json]");
   io.stdout.log("  evo eval patch-boundary [--surface <surfaceId>] [--changed-file <path>] [--diff <path>]");
   io.stdout.log("  evo eval security [--changed-file <path>] [--diff <path>]");
   io.stdout.log("  evo eval report [--surface <surfaceId>] [--changed-file <path>] [--diff <path>]");
@@ -344,12 +392,15 @@ async function demoSeedCommand(
 
   const count = parsePositiveInteger(readOption(args, "count") ?? "20", "count");
   const outputPath = readOption(args, "output") ?? ".evofork/demo-seed.json";
+  const branch = createDemoBranch(manifest.app.id, surfaceId);
+  const generatedAt = new Date().toISOString();
   const seed = {
     appId: manifest.app.id,
     surfaceId,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     signals: createDemoSignals(manifest.app.id, surfaceId, count),
-    branches: [createDemoBranch(manifest.app.id, surfaceId)]
+    branches: [branch],
+    auditLogs: createDemoSeedAuditLogs(branch, generatedAt)
   };
 
   await mkdir(dirname(outputPath), { recursive: true });
@@ -425,6 +476,198 @@ async function routeTestCommand(
   return 0;
 }
 
+type LocalBranchStatus = "draft" | "canary" | "active" | "reverted" | "sunset";
+
+type LocalBranchRecord = RouterBranch & {
+  status: LocalBranchStatus;
+  approvedBy?: string;
+  revertReason?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type LocalAuditLog = {
+  id: string;
+  appId: string;
+  actor: string;
+  event: string;
+  resourceType: "branch";
+  resourceId: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+};
+
+type LocalBranchState = {
+  path: string;
+  data: Record<string, unknown>;
+  branches: LocalBranchRecord[];
+  auditLogs: LocalAuditLog[];
+};
+
+async function branchListCommand(args: string[], io: CliIO): Promise<number> {
+  const state = await readLocalBranchState(readBranchStatePath(args));
+  const surfaceId = readOption(args, "surface");
+  const status = readOption(args, "status");
+  const branches = state.branches
+    .filter((branch) => !surfaceId || branch.surfaceId === surfaceId)
+    .filter((branch) => !status || branch.status === status);
+
+  if (hasFlag(args, "json")) {
+    io.stdout.log(
+      JSON.stringify(
+        {
+          statePath: state.path,
+          branches,
+          auditLogs: state.auditLogs
+        },
+        null,
+        2
+      )
+    );
+    return 0;
+  }
+
+  if (branches.length === 0) {
+    io.stdout.log(`No local branches found in ${state.path}`);
+    return 0;
+  }
+
+  for (const branch of branches) {
+    io.stdout.log(
+      `${branch.id}\t${branch.surfaceId}\t${branch.status}\t${branch.rolloutPercentage}%\t${branch.branchName}`
+    );
+  }
+
+  return 0;
+}
+
+async function branchApproveCommand(args: string[], io: CliIO): Promise<number> {
+  return await mutateLocalBranchCommand(args, io, "branch_approved", (branch, actor, now) => {
+    requireLocalBranchStatus(branch, ["draft"], "approve");
+
+    branch.status = "canary";
+    branch.approvedBy = actor;
+    branch.updatedAt = now;
+
+    return {
+      approvedBy: actor,
+      status: branch.status
+    };
+  });
+}
+
+async function branchRolloutCommand(args: string[], io: CliIO): Promise<number> {
+  const percentageOption = readOption(args, "percentage") ?? readOption(args, "rollout");
+
+  if (!percentageOption) {
+    throw new Error("--percentage is required");
+  }
+
+  const percentage = parseRolloutPercentage(percentageOption);
+
+  return await mutateLocalBranchCommand(args, io, "branch_rollout_changed", (branch, _actor, now) => {
+    requireLocalBranchStatus(branch, ["canary", "active"], "rollout");
+
+    branch.rolloutPercentage = percentage;
+    branch.status = percentage >= 100 ? "active" : "canary";
+    branch.updatedAt = now;
+
+    return {
+      rolloutPercentage: percentage,
+      status: branch.status
+    };
+  });
+}
+
+async function branchRevertCommand(args: string[], io: CliIO): Promise<number> {
+  const reason = readOption(args, "reason");
+
+  if (!reason) {
+    throw new Error("--reason is required");
+  }
+
+  return await mutateLocalBranchCommand(args, io, "branch_reverted", (branch, _actor, now) => {
+    requireLocalBranchStatus(branch, ["draft", "canary", "active"], "revert");
+
+    branch.status = "reverted";
+    branch.rolloutPercentage = 0;
+    branch.revertReason = reason;
+    branch.updatedAt = now;
+
+    return {
+      reason,
+      status: branch.status
+    };
+  });
+}
+
+async function branchSunsetCommand(args: string[], io: CliIO): Promise<number> {
+  return await mutateLocalBranchCommand(args, io, "branch_sunset", (branch, _actor, now) => {
+    requireLocalBranchStatus(branch, ["canary", "active", "reverted"], "sunset");
+
+    branch.status = "sunset";
+    branch.rolloutPercentage = 0;
+    branch.updatedAt = now;
+
+    return {
+      status: branch.status
+    };
+  });
+}
+
+async function mutateLocalBranchCommand(
+  args: string[],
+  io: CliIO,
+  event: string,
+  mutate: (
+    branch: LocalBranchRecord,
+    actor: string,
+    now: string
+  ) => Record<string, unknown>
+): Promise<number> {
+  const branchId = readPositionalArgs(args)[0];
+
+  if (!branchId) {
+    throw new Error("Missing required branchId");
+  }
+
+  const state = await readLocalBranchState(readBranchStatePath(args));
+  const branch = state.branches.find((candidate) => candidate.id === branchId);
+
+  if (!branch) {
+    throw new Error(`Branch not found: ${branchId}`);
+  }
+
+  const actor = readOption(args, "actor") ?? "local-maintainer";
+  const now = new Date().toISOString();
+  const payload = mutate(branch, actor, now);
+  const auditLog = appendLocalAuditLog(state, branch, actor, event, payload, now);
+
+  await writeLocalBranchState(state);
+
+  if (hasFlag(args, "json")) {
+    io.stdout.log(
+      JSON.stringify(
+        {
+          statePath: state.path,
+          branch,
+          auditLog
+        },
+        null,
+        2
+      )
+    );
+    return 0;
+  }
+
+  io.stdout.log(`Branch ${branch.id} updated`);
+  io.stdout.log(`Status: ${branch.status}`);
+  io.stdout.log(`Rollout: ${branch.rolloutPercentage}%`);
+  io.stdout.log(`Audit: ${auditLog.event}`);
+  io.stdout.log(`State: ${state.path}`);
+  return 0;
+}
+
 function createRouteTestBranch(input: {
   appId: string;
   surfaceId: string;
@@ -479,6 +722,151 @@ function createDemoBranch(appId: string, surfaceId: string): RouterBranch {
     rolloutPercentage: 100,
     priority: 10
   };
+}
+
+function createDemoSeedAuditLogs(branch: RouterBranch, createdAt: string): LocalAuditLog[] {
+  return [
+    {
+      id: "audit_demo_seed_created",
+      appId: branch.appId,
+      actor: "demo_seed",
+      event: "branch_created",
+      resourceType: "branch",
+      resourceId: branch.id,
+      payload: {
+        status: "draft"
+      },
+      createdAt
+    },
+    {
+      id: "audit_demo_seed_approved",
+      appId: branch.appId,
+      actor: "demo_seed",
+      event: "branch_approved",
+      resourceType: "branch",
+      resourceId: branch.id,
+      payload: {
+        approvedBy: "demo_seed"
+      },
+      createdAt
+    },
+    {
+      id: "audit_demo_seed_rollout",
+      appId: branch.appId,
+      actor: "demo_seed",
+      event: "branch_rollout_changed",
+      resourceType: "branch",
+      resourceId: branch.id,
+      payload: {
+        rolloutPercentage: branch.rolloutPercentage,
+        status: branch.status
+      },
+      createdAt
+    }
+  ];
+}
+
+async function readLocalBranchState(path: string): Promise<LocalBranchState> {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(await readFile(path, "utf8")) as unknown;
+  } catch (error) {
+    throw new Error(
+      `Local branch state not found or invalid: ${path}. Run pnpm evo demo seed first. ${formatError(
+        error
+      )}`
+    );
+  }
+
+  if (!isRecord(parsed)) {
+    throw new Error(`Local branch state must be a JSON object: ${path}`);
+  }
+
+  const branches = Array.isArray(parsed.branches)
+    ? parsed.branches.flatMap((branch): LocalBranchRecord[] =>
+        isLocalBranchRecord(branch) ? [branch] : []
+      )
+    : [];
+  const auditLogs = Array.isArray(parsed.auditLogs)
+    ? parsed.auditLogs.flatMap((auditLog): LocalAuditLog[] =>
+        isLocalAuditLog(auditLog) ? [auditLog] : []
+      )
+    : [];
+
+  return {
+    path,
+    data: parsed,
+    branches,
+    auditLogs
+  };
+}
+
+async function writeLocalBranchState(state: LocalBranchState): Promise<void> {
+  await mkdir(dirname(state.path), { recursive: true });
+  await writeFile(
+    state.path,
+    `${JSON.stringify(
+      {
+        ...state.data,
+        branches: state.branches,
+        auditLogs: state.auditLogs
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+}
+
+function appendLocalAuditLog(
+  state: LocalBranchState,
+  branch: LocalBranchRecord,
+  actor: string,
+  event: string,
+  payload: Record<string, unknown>,
+  createdAt: string
+): LocalAuditLog {
+  const auditLog: LocalAuditLog = {
+    id: nextAuditId(state.auditLogs),
+    appId: branch.appId,
+    actor,
+    event,
+    resourceType: "branch",
+    resourceId: branch.id,
+    payload,
+    createdAt
+  };
+
+  state.auditLogs.push(auditLog);
+  return auditLog;
+}
+
+function nextAuditId(auditLogs: LocalAuditLog[]): string {
+  let counter = auditLogs.length + 1;
+  let id = `audit_local_${String(counter).padStart(3, "0")}`;
+  const existing = new Set(auditLogs.map((auditLog) => auditLog.id));
+
+  while (existing.has(id)) {
+    counter += 1;
+    id = `audit_local_${String(counter).padStart(3, "0")}`;
+  }
+
+  return id;
+}
+
+function requireLocalBranchStatus(
+  branch: LocalBranchRecord,
+  allowed: LocalBranchStatus[],
+  action: string
+): void {
+  if (!allowed.includes(branch.status)) {
+    throw new Error(`Cannot ${action} branch ${branch.id} from status ${branch.status}`);
+  }
+}
+
+function readBranchStatePath(args: string[]): string {
+  return readOption(args, "state") ?? readOption(args, "file") ?? ".evofork/demo-seed.json";
 }
 
 async function evalPatchBoundaryCommand(
@@ -626,7 +1014,7 @@ function parsePositiveInteger(value: string, name: string): number {
 function parseRolloutPercentage(value: string): number {
   const parsed = Number(value);
 
-  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+  if (value.trim() === "" || !Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
     throw new Error("--rollout must be an integer from 0 to 100");
   }
 
@@ -671,8 +1059,62 @@ function isRouterBranch(value: unknown): value is RouterBranch {
   );
 }
 
+const localBranchStatuses = ["draft", "canary", "active", "reverted", "sunset"] as const;
+
+function isLocalBranchRecord(value: unknown): value is LocalBranchRecord {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.appId === "string" &&
+    typeof value.surfaceId === "string" &&
+    typeof value.branchName === "string" &&
+    isLocalBranchStatus(value.status) &&
+    isRecord(value.targetSegments) &&
+    typeof value.rolloutPercentage === "number"
+  );
+}
+
+function isLocalBranchStatus(value: unknown): value is LocalBranchStatus {
+  return typeof value === "string" && localBranchStatuses.includes(value as LocalBranchStatus);
+}
+
+function isLocalAuditLog(value: unknown): value is LocalAuditLog {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.appId === "string" &&
+    typeof value.actor === "string" &&
+    typeof value.event === "string" &&
+    value.resourceType === "branch" &&
+    typeof value.resourceId === "string" &&
+    isRecord(value.payload) &&
+    typeof value.createdAt === "string"
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function readPositionalArgs(args: string[]): string[] {
+  const values: string[] = [];
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (!arg.startsWith("--")) {
+      values.push(arg);
+      continue;
+    }
+
+    const [name] = arg.slice(2).split("=");
+
+    if (!arg.includes("=") && valueOptionNames.has(name)) {
+      index += 1;
+    }
+  }
+
+  return values;
 }
 
 function readRepeatedOption(args: string[], name: string): string[] {
