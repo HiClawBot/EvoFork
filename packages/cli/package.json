@@ -1,6 +1,6 @@
 {
   "name": "@evofork/cli",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -22,6 +22,7 @@
     "@evofork/insight-worker": "workspace:*",
     "@evofork/manifest-parser": "workspace:*",
     "@evofork/patch-agent": "workspace:*",
+    "@evofork/policy-engine": "workspace:*",
     "@evofork/router": "workspace:*"
   }
 }

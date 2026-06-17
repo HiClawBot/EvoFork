@@ -1,5 +1,5 @@
 {
-  "name": "@evofork/adapter-llm-mock",
+  "name": "@evofork/policy-engine",
   "version": "0.2.0",
   "private": true,
   "type": "module",
@@ -11,5 +11,8 @@
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@evofork/manifest-parser": "workspace:*"
   }
 }

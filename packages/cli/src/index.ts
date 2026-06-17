@@ -34,6 +34,7 @@ import {
 } from "@evofork/manifest-parser";
 import { generateInsightRfc } from "@evofork/insight-worker";
 import { preparePullRequest } from "@evofork/patch-agent";
+import { evaluatePolicy } from "@evofork/policy-engine";
 import { resolveVariant, type RouterBranch } from "@evofork/router";
 
 export const moduleId = "@evofork/cli";
@@ -52,6 +53,7 @@ const valueOptionNames = new Set([
   "branches",
   "changed-file",
   "changed-files",
+  "change",
   "count",
   "database-url",
   "diff",
@@ -106,6 +108,10 @@ export async function runCli(
 
     if (namespace === "patch" && command === "create-pr") {
       return await createPrCommand(parsedArgs.manifestPath, commandArgs, io);
+    }
+
+    if (namespace === "policy" && command === "check") {
+      return await policyCheckCommand(parsedArgs.manifestPath, commandArgs, io);
     }
 
     if (namespace === "demo" && command === "seed") {
@@ -241,6 +247,7 @@ function printHelp(io: CliIO): void {
   io.stdout.log("  evo surface explain <surfaceId> [--manifest <path>]");
   io.stdout.log("  evo insight generate --surface <surfaceId> [--text <feedback>] [--manifest <path>]");
   io.stdout.log("  evo patch create-pr --rfc <rfcId> --surface <surfaceId> [--manifest <path>]");
+  io.stdout.log("  evo policy check --surface <surfaceId> [--change <category>] [--rollout <0-100>] [--approved] [--json]");
   io.stdout.log("  evo demo seed [--surface <surfaceId>] [--count <n>] [--output <path>] [--json]");
   io.stdout.log("  evo route test <surfaceId> --user <userId> [--segment <key=value>] [--rollout <0-100>] [--json]");
   io.stdout.log("  evo branch list [--state <path>] [--surface <surfaceId>] [--status <status>] [--json]");
@@ -411,6 +418,48 @@ async function createPrCommand(
 
   io.stdout.log(JSON.stringify(prepared, null, 2));
   return 0;
+}
+
+async function policyCheckCommand(
+  manifestPath: string,
+  args: string[],
+  io: CliIO
+): Promise<number> {
+  const surfaceId = readOption(args, "surface");
+
+  if (!surfaceId) {
+    io.stderr.error("Missing required --surface <surfaceId>");
+    return 1;
+  }
+
+  const rolloutValue = readOption(args, "rollout");
+  const rolloutPercentage = rolloutValue ? parseRolloutPercentage(rolloutValue) : undefined;
+  const decision = evaluatePolicy({
+    manifest: await loadManifest(manifestPath),
+    surfaceId,
+    action: rolloutPercentage === undefined ? "patch" : "rollout",
+    changeCategories: readRepeatedOption(args, "change"),
+    rolloutPercentage,
+    actor: readOption(args, "actor"),
+    humanApproved: hasFlag(args, "approved") || hasFlag(args, "human-approved")
+  });
+
+  if (hasFlag(args, "json")) {
+    io.stdout.log(JSON.stringify(decision, null, 2));
+    return decision.allowed ? 0 : 1;
+  }
+
+  io.stdout.log(`Policy: ${decision.allowed ? "allowed" : "blocked"}`);
+
+  for (const reason of decision.reasons) {
+    io.stdout.log(`- ${reason}`);
+  }
+
+  if (decision.requiredApprovals.length > 0) {
+    io.stdout.log(`Required approvals: ${decision.requiredApprovals.join(", ")}`);
+  }
+
+  return decision.allowed ? 0 : 1;
 }
 
 async function demoSeedCommand(
