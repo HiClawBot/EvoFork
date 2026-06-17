@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.5 - PostgreSQL Schema Preview
+
+The first database persistence preview is available without changing the default local demo mode.
+
+### Added
+
+- `@evofork/db` package with typed Drizzle PostgreSQL table definitions.
+- Initial SQL migration for apps, feedback signals, RFCs, branches, variant exposures, audit logs, and eval reports.
+- Local `docker-compose.yml` PostgreSQL service for migration testing.
+- Bilingual database setup documentation.
+
+### Changed
+
+- README and data model docs now point to the optional PostgreSQL schema preview.
+- Workspace package versions are bumped to `0.1.5`.
+
+### Notes
+
+The API server still uses in-memory repositories by default in v0.1. This release adds the persistence foundation only; it does not require PostgreSQL for the demo.
+
 ## v0.1.4 - Local Demo State Complete
 
 Local demo state is now shared by the CLI and Admin Console.

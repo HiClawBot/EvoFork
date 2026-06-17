@@ -168,7 +168,8 @@ evofork/
 │   ├── sdk-react/
 │   ├── sdk-node/
 │   ├── openfeature-provider/
-│   └── manifest-parser/
+│   ├── manifest-parser/
+│   └── db/
 ├── services/
 │   ├── api-server/
 │   ├── signal-hub/
@@ -256,6 +257,17 @@ preview, branch registration, segment routing, and branch revert. The API server
 uses in-memory repositories in v0.1.
 
 See [Quickstart](./docs/QUICKSTART.md) for the full local walkthrough.
+
+Optional PostgreSQL schema preview:
+
+```bash
+docker compose up -d postgres
+psql "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork" \
+  -f packages/db/migrations/0001_initial.sql
+```
+
+The database schema is available in `@evofork/db`, but the v0.1 demo still runs
+without a database by default.
 
 ---
 
@@ -371,6 +383,7 @@ and are not invoked by default.
 - [Manifest Spec](./docs/MANIFEST_SPEC.md)
 - [API Spec](./docs/API_SPEC.md)
 - [Data Model](./docs/DATA_MODEL.md)
+- [Database](./docs/DATABASE.md)
 - [Eval Gate](./docs/EVAL_GATE.md)
 - [Router](./docs/ROUTER.md)
 - [Release Checklist](./docs/RELEASE_CHECKLIST.md)
@@ -612,6 +625,16 @@ API server:        http://127.0.0.1:3333/health
 
 完整本地演示步骤见 [Quickstart](./docs/QUICKSTART.md)。
 
+可选 PostgreSQL schema 预览：
+
+```bash
+docker compose up -d postgres
+psql "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork" \
+  -f packages/db/migrations/0001_initial.sql
+```
+
+数据库 schema 位于 `@evofork/db`，但 v0.1 demo 默认仍不需要数据库。
+
 ---
 
 ## API 预览
@@ -680,6 +703,7 @@ v0.1 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 G
 - [Manifest 规格](./docs/MANIFEST_SPEC.md)
 - [API 规格](./docs/API_SPEC.md)
 - [数据模型](./docs/DATA_MODEL.md)
+- [数据库](./docs/DATABASE.md)
 - [Eval Gate](./docs/EVAL_GATE.md)
 - [Router](./docs/ROUTER.md)
 - [发布清单](./docs/RELEASE_CHECKLIST.md)

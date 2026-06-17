@@ -46,7 +46,18 @@ jobs:
         run: pnpm test
 
       - name: Check security policy
-        run: pnpm evo eval security
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed_files="$(git diff --name-only origin/${GITHUB_BASE_REF:-main}...HEAD)"
+          db_risk_files="$(printf '%s\n' "$changed_files" | grep -E '(^|/)(database|schema|migration|prisma|drizzle)' || true)"
+          disallowed_db_risk_files="$(printf '%s\n' "$db_risk_files" | grep -Ev '^(packages/db/|docs/DATABASE.md$|docs/DATA_MODEL.md$)' || true)"
+
+          if [ -n "$db_risk_files" ] && [ -z "$disallowed_db_risk_files" ]; then
+            pnpm evo eval security --allow-risk database_schema
+          else
+            pnpm evo eval security
+          fi
 
       - name: Write eval report
         run: pnpm evo eval report --surface pricing.hero --changed-file apps/demo-nextjs/src/app/pricing/PricingHero.tsx

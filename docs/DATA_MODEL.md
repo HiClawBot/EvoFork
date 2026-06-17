@@ -1,5 +1,10 @@
 # EvoFork Data Model
 
+The canonical v0.1 PostgreSQL preview schema is implemented in
+`packages/db/src/index.ts` with the initial SQL migration in
+`packages/db/migrations/0001_initial.sql`. The API server still defaults to
+in-memory repositories in v0.1 so the local demo can run without PostgreSQL.
+
 ## apps
 
 ```sql

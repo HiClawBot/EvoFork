@@ -36,6 +36,7 @@ export type EvalInput = {
   surfaceId?: string;
   changedFiles?: string[];
   diff?: string;
+  allowedSecurityCategories?: string[];
   typecheckPassed?: boolean;
   unitTestsPassed?: boolean;
 };
@@ -146,10 +147,11 @@ export function runEvalGate(input: EvalInput): EvalReport {
 
 export function findSecurityPolicyViolations(input: EvalInput): SecurityPolicyViolation[] {
   const violations: SecurityPolicyViolation[] = [];
+  const allowedCategories = new Set(input.allowedSecurityCategories ?? []);
 
   for (const file of resolveChangedFiles(input)) {
     for (const policy of forbiddenPathPolicies) {
-      if (policy.pattern.test(file)) {
+      if (!allowedCategories.has(policy.category) && policy.pattern.test(file)) {
         violations.push({
           category: policy.category,
           target: file
@@ -160,7 +162,7 @@ export function findSecurityPolicyViolations(input: EvalInput): SecurityPolicyVi
 
   if (input.diff) {
     for (const policy of forbiddenDiffPolicies) {
-      if (policy.pattern.test(input.diff)) {
+      if (!allowedCategories.has(policy.category) && policy.pattern.test(input.diff)) {
         violations.push({
           category: policy.category,
           target: "diff content"

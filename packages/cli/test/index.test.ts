@@ -570,6 +570,29 @@ describe("@evofork/cli", () => {
     expect(result.details.join("\n")).toContain("secrets");
   });
 
+  it("allows explicitly approved eval security risk categories", async () => {
+    const io = createTestIo();
+
+    await expect(
+      runCli(
+        [
+          "eval",
+          "security",
+          "--changed-file",
+          "packages/db/migrations/0001_initial.sql",
+          "--allow-risk",
+          "database_schema",
+          "--manifest",
+          manifestPath
+        ],
+        io
+      )
+    ).resolves.toBe(0);
+
+    const result = JSON.parse(io.output()) as { passed: boolean; details: string[] };
+    expect(result.passed).toBe(true);
+  });
+
   it("prints a passing eval report for authorized changed files", async () => {
     const io = createTestIo();
 
