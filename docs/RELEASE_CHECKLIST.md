@@ -4,11 +4,7 @@ Run from the repository root before publishing a GitHub release.
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm build
-pnpm test
-pnpm typecheck
-pnpm lint
-pnpm evo manifest validate
+pnpm verify
 ```
 
 Security and safety checks:
@@ -23,14 +19,17 @@ surface boundary.
 
 Local demo smoke path:
 
-1. Run `pnpm dev`.
-2. Open `http://127.0.0.1:3000/pricing`.
-3. Submit pricing feedback.
-4. Open `http://127.0.0.1:3001`.
-5. Generate RFC.
-6. Create demo branch.
-7. Confirm the pricing page resolves `pricing.hero.new-user-clarity.v1`.
-8. Revert the branch and confirm routing falls back to `default`.
+1. Run `pnpm evo demo seed`.
+2. Run `pnpm evo route test pricing.hero --user user_123 --segment lifecycle_stage=new_user`.
+3. Run `pnpm dev`.
+4. Open `http://127.0.0.1:3000/pricing`.
+5. Submit pricing feedback.
+6. Open `http://127.0.0.1:3001`.
+7. Confirm local seed feedback is visible if the API has no records yet.
+8. Generate RFC.
+9. Create demo branch.
+10. Confirm the pricing page resolves `pricing.hero.new-user-clarity.v1`.
+11. Revert the branch and confirm routing falls back to `default`.
 
 Release notes:
 

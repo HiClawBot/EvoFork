@@ -88,6 +88,16 @@ export function AdminConsole({ initialSnapshot }: { initialSnapshot: AdminSnapsh
         </button>
       </section>
 
+      {snapshot.seedLoaded ? (
+        <section className="result-panel">
+          <h2>Local Seed Loaded</h2>
+          <p>
+            The console is showing `.evofork/demo-seed.json` because the local API has no
+            matching demo records yet.
+          </p>
+        </section>
+      ) : null}
+
       {result ? (
         <section className="result-panel">
           <h2>Latest Action</h2>

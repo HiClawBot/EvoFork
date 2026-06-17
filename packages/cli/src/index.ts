@@ -348,7 +348,8 @@ async function demoSeedCommand(
     appId: manifest.app.id,
     surfaceId,
     generatedAt: new Date().toISOString(),
-    signals: createDemoSignals(manifest.app.id, surfaceId, count)
+    signals: createDemoSignals(manifest.app.id, surfaceId, count),
+    branches: [createDemoBranch(manifest.app.id, surfaceId)]
   };
 
   await mkdir(dirname(outputPath), { recursive: true });
@@ -389,16 +390,18 @@ async function routeTestCommand(
   const segmentHints = readSegmentOptions(args);
   const rolloutPercentage = parseRolloutPercentage(readOption(args, "rollout") ?? "100");
   const branchName = readOption(args, "branch") ?? `${surfaceId}.new-user-clarity.v1`;
-  const branch: RouterBranch = {
-    id: readOption(args, "branch-id") ?? "br_cli_route_test",
+  const branch = createRouteTestBranch({
     appId: manifest.app.id,
     surfaceId,
     branchName,
-    status: "active",
-    targetSegments: segmentHints,
+    branchId: readOption(args, "branch-id") ?? "br_cli_route_test",
     rolloutPercentage,
-    priority: 10
-  };
+    targetSegments: segmentHints
+  });
+  const branches =
+    (await readRouteBranches(readOption(args, "branches") ?? ".evofork/demo-seed.json")) ?? [
+      branch
+    ];
   const result = resolveVariant(
     {
       appId: manifest.app.id,
@@ -407,7 +410,7 @@ async function routeTestCommand(
       segmentHints,
       personalizationOptOut: hasFlag(args, "opt-out")
     },
-    [branch]
+    branches
   );
 
   if (hasFlag(args, "json")) {
@@ -420,6 +423,62 @@ async function routeTestCommand(
   io.stdout.log(`Sticky: ${String(result.sticky)}`);
   io.stdout.log(`Surface: ${result.surfaceId}`);
   return 0;
+}
+
+function createRouteTestBranch(input: {
+  appId: string;
+  surfaceId: string;
+  branchName: string;
+  branchId: string;
+  rolloutPercentage: number;
+  targetSegments: Record<string, string | number | boolean>;
+}): RouterBranch {
+  return {
+    id: input.branchId,
+    appId: input.appId,
+    surfaceId: input.surfaceId,
+    branchName: input.branchName,
+    status: "active",
+    targetSegments: input.targetSegments,
+    rolloutPercentage: input.rolloutPercentage,
+    priority: 10
+  };
+}
+
+async function readRouteBranches(path: string): Promise<RouterBranch[] | undefined> {
+  try {
+    const parsed = JSON.parse(await readFile(path, "utf8")) as unknown;
+    const candidates = Array.isArray(parsed)
+      ? parsed
+      : isRecord(parsed) && Array.isArray(parsed.branches)
+        ? parsed.branches
+        : undefined;
+
+    if (!candidates) {
+      return undefined;
+    }
+
+    return candidates.flatMap((candidate): RouterBranch[] =>
+      isRouterBranch(candidate) ? [candidate] : []
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+function createDemoBranch(appId: string, surfaceId: string): RouterBranch {
+  return {
+    id: "br_demo_seed",
+    appId,
+    surfaceId,
+    branchName: `${surfaceId}.new-user-clarity.v1`,
+    status: "active",
+    targetSegments: {
+      lifecycle_stage: "new_user"
+    },
+    rolloutPercentage: 100,
+    priority: 10
+  };
 }
 
 async function evalPatchBoundaryCommand(
@@ -597,6 +656,23 @@ function createDemoSignals(appId: string, surfaceId: string, count: number) {
     piiRemoved: true,
     llmEligible: true
   }));
+}
+
+function isRouterBranch(value: unknown): value is RouterBranch {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.appId === "string" &&
+    typeof value.surfaceId === "string" &&
+    typeof value.branchName === "string" &&
+    typeof value.status === "string" &&
+    isRecord(value.targetSegments) &&
+    typeof value.rolloutPercentage === "number"
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function readRepeatedOption(args: string[], name: string): string[] {
