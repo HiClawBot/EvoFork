@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.2.3 - Admin Governance Visibility
+
+The Admin Console now surfaces governance state in the local demo loop.
+
+### Added
+
+- Governance status panel for data source, Eval Gate status, policy audit counts, and rollback state.
+- Branch rows now preserve and display Eval Gate report summaries from local seed state.
+- Audit log rows now preserve and display payload summaries.
+- Tests for local seed eval report and audit payload preservation.
+
+### Changed
+
+- Admin Console styles now include compact status rows for governance summaries.
+- README documents the updated Admin Console visibility in English and Chinese.
+- Workspace package versions are bumped to `0.2.3`.
+
+### Notes
+
+This release improves visibility only. It does not add autonomous deployment, production permissions, or policy bypass behavior.
+
 ## v0.2.2 - Safety Fixtures
 
 Safety fixtures are now available for release checks and CI smoke validation.

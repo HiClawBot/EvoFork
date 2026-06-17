@@ -268,8 +268,9 @@ API server:        http://127.0.0.1:3333/health
 ```
 
 The local UI demo covers feedback submission, mock RFC generation, local PR/eval
-preview, branch registration, segment routing, and branch revert. The API server
-uses in-memory repositories in v0.1.
+preview, branch registration, segment routing, and branch revert. The Admin
+Console shows governance status for data source, Eval Gate, policy audit counts,
+and rollback state. The default API server uses in-memory repositories.
 
 See [Quickstart](./docs/QUICKSTART.md) for the full local walkthrough and
 [Safety Fixtures](./docs/SAFETY_FIXTURES.md) for reusable safety checks.
@@ -656,7 +657,9 @@ Admin console:     http://127.0.0.1:3001
 API server:        http://127.0.0.1:3333/health
 ```
 
-本地 UI demo 覆盖反馈提交、mock RFC 生成、本地 PR/eval 预览、分支注册、分群路由和分支回滚。v0.1 API server 使用内存仓库。
+本地 UI demo 覆盖反馈提交、mock RFC 生成、本地 PR/eval 预览、分支注册、分群路由和分支回滚。
+Admin Console 会显示数据来源、Eval Gate、policy audit 计数和 rollback 状态。
+默认 API server 使用内存仓库。
 
 完整本地演示步骤见 [Quickstart](./docs/QUICKSTART.md)，可复用安全检查见
 [Safety Fixtures](./docs/SAFETY_FIXTURES.md)。

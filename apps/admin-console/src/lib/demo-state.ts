@@ -25,14 +25,16 @@ export async function readDemoSeed(path = process.env.EVOFORK_DEMO_SEED_PATH): P
         surfaceId: branch.surfaceId,
         branchName: branch.branchName,
         status: branch.status,
-        rolloutPercentage: branch.rolloutPercentage
+        rolloutPercentage: branch.rolloutPercentage,
+        evalReport: branch.evalReport
       })),
       auditLogs: state.auditLogs.map((auditLog) => ({
         id: auditLog.id,
         appId: auditLog.appId,
         actor: auditLog.actor,
         event: auditLog.event,
-        resourceId: auditLog.resourceId
+        resourceId: auditLog.resourceId,
+        payload: auditLog.payload
       }))
     };
   } catch {
