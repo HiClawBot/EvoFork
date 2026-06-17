@@ -1,6 +1,6 @@
 {
   "name": "@evofork/admin-console",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -14,6 +14,7 @@
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@evofork/branch-registry": "workspace:*",
     "@evofork/eval-gate": "workspace:*",
     "@evofork/insight-worker": "workspace:*",
     "@evofork/manifest-parser": "workspace:*",

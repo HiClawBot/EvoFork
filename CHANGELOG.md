@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.4 - Local Demo State Complete
+
+Local demo state is now shared by the CLI and Admin Console.
+
+### Added
+
+- `pnpm evo branch create` for creating draft local branch fixtures.
+- Shared local demo state adapter in `@evofork/branch-registry`.
+- Admin Console create/revert actions can mutate `.evofork/demo-seed.json` when the API server is unavailable.
+
+### Changed
+
+- CLI branch lifecycle commands now use the shared local state adapter.
+- Admin Console seed fallback now reads branch and audit state through the shared adapter.
+- Quickstart documents local branch create, approve, rollout, route, and rollback.
+
+### Notes
+
+This release keeps local seed state as ignored developer run state. It does not add production persistence.
+
 ## v0.1.3 - Local Branch Lifecycle
 
 Local branch lifecycle controls for the v0.1 Developer Preview.

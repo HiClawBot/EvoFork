@@ -45,6 +45,9 @@ importers:
 
   apps/admin-console:
     dependencies:
+      '@evofork/branch-registry':
+        specifier: workspace:*
+        version: link:../../services/branch-registry
       '@evofork/eval-gate':
         specifier: workspace:*
         version: link:../../services/eval-gate
@@ -98,6 +101,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@evofork/branch-registry':
+        specifier: workspace:*
+        version: link:../../services/branch-registry
       '@evofork/eval-gate':
         specifier: workspace:*
         version: link:../../services/eval-gate

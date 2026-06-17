@@ -233,6 +233,7 @@ Manage local branch state without production credentials:
 
 ```bash
 pnpm evo branch list
+pnpm evo branch create --surface pricing.hero --branch pricing.hero.local-draft.v1
 pnpm evo branch revert br_demo_seed --reason "local rollback"
 ```
 
@@ -589,6 +590,7 @@ pnpm evo route test pricing.hero \
 
 ```bash
 pnpm evo branch list
+pnpm evo branch create --surface pricing.hero --branch pricing.hero.local-draft.v1
 pnpm evo branch revert br_demo_seed --reason "local rollback"
 ```
 

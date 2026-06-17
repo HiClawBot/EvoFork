@@ -1,3 +1,6 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+
 export const serviceId = "@evofork/branch-registry";
 
 export type BranchStatus = "draft" | "canary" | "active" | "reverted" | "sunset";
@@ -63,6 +66,27 @@ export type BranchListFilter = {
 export type AuditLogFilter = {
   appId?: string;
   resourceId?: string;
+};
+
+export type LocalDemoState = {
+  path: string;
+  data: Record<string, unknown>;
+  signals: unknown[];
+  branches: BranchRecord[];
+  auditLogs: AuditLogRecord[];
+};
+
+export type CreateLocalBranchInput = {
+  appId: string;
+  surfaceId: string;
+  rfcId?: string;
+  branchName: string;
+  branchId?: string;
+  gitBranch?: string;
+  targetSegments?: TargetSegments;
+  priority?: number;
+  evalReport?: unknown;
+  actor?: string;
 };
 
 export interface BranchRegistry {
@@ -284,6 +308,322 @@ export class InMemoryBranchRegistry implements BranchRegistry {
   }
 }
 
+export const defaultLocalDemoStatePath = ".evofork/demo-seed.json";
+
+export function emptyLocalDemoState(
+  path = defaultLocalDemoStatePath,
+  data: Record<string, unknown> = {}
+): LocalDemoState {
+  return {
+    path,
+    data,
+    signals: Array.isArray(data.signals) ? data.signals : [],
+    branches: [],
+    auditLogs: []
+  };
+}
+
+export async function readLocalDemoState(
+  path = defaultLocalDemoStatePath
+): Promise<LocalDemoState> {
+  const parsed = JSON.parse(await readFile(path, "utf8")) as unknown;
+
+  if (!isRecord(parsed)) {
+    throw new Error(`Local demo state must be a JSON object: ${path}`);
+  }
+
+  return parseLocalDemoState(path, parsed);
+}
+
+export async function readOrCreateLocalDemoState(
+  path = defaultLocalDemoStatePath,
+  data: Record<string, unknown> = {}
+): Promise<LocalDemoState> {
+  try {
+    return await readLocalDemoState(path);
+  } catch {
+    return emptyLocalDemoState(path, {
+      generatedAt: new Date().toISOString(),
+      ...data
+    });
+  }
+}
+
+export async function writeLocalDemoState(state: LocalDemoState): Promise<void> {
+  await mkdir(dirname(state.path), { recursive: true });
+  await writeFile(
+    state.path,
+    `${JSON.stringify(
+      {
+        ...state.data,
+        signals: state.signals,
+        branches: state.branches,
+        auditLogs: state.auditLogs
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+}
+
+export function parseLocalDemoState(
+  path: string,
+  value: Record<string, unknown>
+): LocalDemoState {
+  return {
+    path,
+    data: value,
+    signals: Array.isArray(value.signals) ? value.signals : [],
+    branches: Array.isArray(value.branches)
+      ? value.branches.flatMap((branch): BranchRecord[] => normalizeLocalBranchRecord(branch))
+      : [],
+    auditLogs: Array.isArray(value.auditLogs)
+      ? value.auditLogs.flatMap((auditLog): AuditLogRecord[] =>
+          isLocalAuditLogRecord(auditLog) ? [auditLog] : []
+        )
+      : []
+  };
+}
+
+export function createLocalBranch(
+  state: LocalDemoState,
+  input: CreateLocalBranchInput,
+  now = new Date().toISOString()
+): { branch: BranchRecord; auditLog: AuditLogRecord } {
+  const id = input.branchId ?? nextBranchId(state.branches);
+
+  if (state.branches.some((branch) => branch.id === id)) {
+    throw new BranchRegistryError("branch_already_exists", `Branch already exists: ${id}`);
+  }
+
+  const branch: BranchRecord = {
+    id,
+    appId: input.appId,
+    surfaceId: input.surfaceId,
+    rfcId: input.rfcId,
+    branchName: input.branchName,
+    gitBranch: input.gitBranch,
+    status: "draft",
+    targetSegments: cloneSegments(input.targetSegments ?? {}),
+    rolloutPercentage: 0,
+    priority: input.priority ?? 10,
+    evalReport: input.evalReport,
+    createdBy: input.actor ?? "local-maintainer",
+    createdAt: now,
+    updatedAt: now
+  };
+
+  state.branches.push(branch);
+
+  return {
+    branch: cloneBranch(branch),
+    auditLog: appendLocalAuditLog(state, branch, input.actor ?? branch.createdBy, "branch_created", {
+      status: branch.status
+    }, now)
+  };
+}
+
+export function approveLocalBranch(
+  state: LocalDemoState,
+  id: string,
+  actor = "local-maintainer",
+  now = new Date().toISOString()
+): { branch: BranchRecord; auditLog: AuditLogRecord } {
+  const branch = requireLocalBranch(state, id);
+  requireStatus(branch, ["draft"], "approve");
+
+  branch.status = "canary";
+  branch.approvedBy = actor;
+  branch.updatedAt = now;
+
+  return {
+    branch: cloneBranch(branch),
+    auditLog: appendLocalAuditLog(state, branch, actor, "branch_approved", {
+      approvedBy: actor,
+      status: branch.status
+    }, now)
+  };
+}
+
+export function rolloutLocalBranch(
+  state: LocalDemoState,
+  id: string,
+  percentage: number,
+  actor = "local-maintainer",
+  now = new Date().toISOString()
+): { branch: BranchRecord; auditLog: AuditLogRecord } {
+  validateRolloutPercentage(percentage);
+
+  const branch = requireLocalBranch(state, id);
+  requireStatus(branch, ["canary", "active"], "rollout");
+
+  branch.rolloutPercentage = percentage;
+  branch.status = percentage >= 100 ? "active" : "canary";
+  branch.updatedAt = now;
+
+  return {
+    branch: cloneBranch(branch),
+    auditLog: appendLocalAuditLog(state, branch, actor, "branch_rollout_changed", {
+      rolloutPercentage: percentage,
+      status: branch.status
+    }, now)
+  };
+}
+
+export function revertLocalBranch(
+  state: LocalDemoState,
+  id: string,
+  reason: string,
+  actor = "local-maintainer",
+  now = new Date().toISOString()
+): { branch: BranchRecord; auditLog: AuditLogRecord } {
+  if (!reason) {
+    throw new BranchRegistryError("missing_revert_reason", "Revert reason is required");
+  }
+
+  const branch = requireLocalBranch(state, id);
+  requireStatus(branch, ["draft", "canary", "active"], "revert");
+
+  branch.status = "reverted";
+  branch.rolloutPercentage = 0;
+  branch.revertReason = reason;
+  branch.updatedAt = now;
+
+  return {
+    branch: cloneBranch(branch),
+    auditLog: appendLocalAuditLog(state, branch, actor, "branch_reverted", {
+      reason,
+      status: branch.status
+    }, now)
+  };
+}
+
+export function sunsetLocalBranch(
+  state: LocalDemoState,
+  id: string,
+  actor = "local-maintainer",
+  now = new Date().toISOString()
+): { branch: BranchRecord; auditLog: AuditLogRecord } {
+  const branch = requireLocalBranch(state, id);
+  requireStatus(branch, ["canary", "active", "reverted"], "sunset");
+
+  branch.status = "sunset";
+  branch.rolloutPercentage = 0;
+  branch.updatedAt = now;
+
+  return {
+    branch: cloneBranch(branch),
+    auditLog: appendLocalAuditLog(state, branch, actor, "branch_sunset", {
+      status: branch.status
+    }, now)
+  };
+}
+
+export function createDemoSeedAuditLogs(
+  branch: Pick<BranchRecord, "appId" | "id" | "rolloutPercentage" | "status">,
+  createdAt: string
+): AuditLogRecord[] {
+  return [
+    {
+      id: "audit_demo_seed_created",
+      appId: branch.appId,
+      actor: "demo_seed",
+      event: "branch_created",
+      resourceType: "branch",
+      resourceId: branch.id,
+      payload: {
+        status: "draft"
+      },
+      createdAt
+    },
+    {
+      id: "audit_demo_seed_approved",
+      appId: branch.appId,
+      actor: "demo_seed",
+      event: "branch_approved",
+      resourceType: "branch",
+      resourceId: branch.id,
+      payload: {
+        approvedBy: "demo_seed"
+      },
+      createdAt
+    },
+    {
+      id: "audit_demo_seed_rollout",
+      appId: branch.appId,
+      actor: "demo_seed",
+      event: "branch_rollout_changed",
+      resourceType: "branch",
+      resourceId: branch.id,
+      payload: {
+        rolloutPercentage: branch.rolloutPercentage,
+        status: branch.status
+      },
+      createdAt
+    }
+  ];
+}
+
+function requireLocalBranch(state: LocalDemoState, id: string): BranchRecord {
+  const branch = state.branches.find((candidate) => candidate.id === id);
+
+  if (!branch) {
+    throw new BranchRegistryError("branch_not_found", `Branch not found: ${id}`, 404);
+  }
+
+  return branch;
+}
+
+function appendLocalAuditLog(
+  state: LocalDemoState,
+  branch: BranchRecord,
+  actor: string,
+  event: string,
+  payload: Record<string, unknown>,
+  createdAt: string
+): AuditLogRecord {
+  const auditLog: AuditLogRecord = {
+    id: nextAuditId(state.auditLogs),
+    appId: branch.appId,
+    actor,
+    event,
+    resourceType: "branch",
+    resourceId: branch.id,
+    payload,
+    createdAt
+  };
+
+  state.auditLogs.push(auditLog);
+  return { ...auditLog, payload: { ...auditLog.payload } };
+}
+
+function nextBranchId(branches: BranchRecord[]): string {
+  return nextLocalId(
+    "br_local",
+    new Set(branches.map((branch) => branch.id))
+  );
+}
+
+function nextAuditId(auditLogs: AuditLogRecord[]): string {
+  return nextLocalId(
+    "audit_local",
+    new Set(auditLogs.map((auditLog) => auditLog.id))
+  );
+}
+
+function nextLocalId(prefix: string, existing: Set<string>): string {
+  let counter = existing.size + 1;
+  let id = `${prefix}_${String(counter).padStart(3, "0")}`;
+
+  while (existing.has(id)) {
+    counter += 1;
+    id = `${prefix}_${String(counter).padStart(3, "0")}`;
+  }
+
+  return id;
+}
+
 function requireStatus(branch: BranchRecord, allowed: BranchStatus[], action: string): void {
   if (!allowed.includes(branch.status)) {
     throw new BranchRegistryError(
@@ -316,6 +656,83 @@ function cloneSegments(segments: TargetSegments): TargetSegments {
       Array.isArray(value) ? [...value] : value
     ])
   );
+}
+
+function normalizeLocalBranchRecord(value: unknown): BranchRecord[] {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    typeof value.appId !== "string" ||
+    typeof value.surfaceId !== "string" ||
+    typeof value.branchName !== "string" ||
+    !isBranchStatus(value.status) ||
+    !isRecord(value.targetSegments) ||
+    typeof value.rolloutPercentage !== "number"
+  ) {
+    return [];
+  }
+
+  const createdAt = readString(value.createdAt) ?? new Date(0).toISOString();
+
+  return [
+    {
+      id: value.id,
+      appId: value.appId,
+      surfaceId: value.surfaceId,
+      rfcId: readString(value.rfcId),
+      branchName: value.branchName,
+      baseVersion: readString(value.baseVersion),
+      gitBranch: readString(value.gitBranch),
+      commitHash: readString(value.commitHash),
+      prUrl: readString(value.prUrl),
+      status: value.status,
+      targetSegments: cloneSegments(value.targetSegments as TargetSegments),
+      rolloutPercentage: value.rolloutPercentage,
+      priority: readNumber(value.priority) ?? 0,
+      evalReport: value.evalReport,
+      createdBy: readString(value.createdBy) ?? "local-state",
+      approvedBy: readString(value.approvedBy),
+      revertReason: readString(value.revertReason),
+      createdAt,
+      updatedAt: readString(value.updatedAt) ?? createdAt
+    }
+  ];
+}
+
+function isLocalAuditLogRecord(value: unknown): value is AuditLogRecord {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.appId === "string" &&
+    typeof value.actor === "string" &&
+    typeof value.event === "string" &&
+    value.resourceType === "branch" &&
+    typeof value.resourceId === "string" &&
+    isRecord(value.payload) &&
+    typeof value.createdAt === "string"
+  );
+}
+
+function isBranchStatus(value: unknown): value is BranchStatus {
+  return (
+    value === "draft" ||
+    value === "canary" ||
+    value === "active" ||
+    value === "reverted" ||
+    value === "sunset"
+  );
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function readNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function randomId(): string {
