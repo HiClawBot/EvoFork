@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   evaluatePatchBoundary,
@@ -15,6 +16,7 @@ import {
 } from "@evofork/manifest-parser";
 import { generateInsightRfc } from "@evofork/insight-worker";
 import { preparePullRequest } from "@evofork/patch-agent";
+import { resolveVariant, type RouterBranch } from "@evofork/router";
 
 export const moduleId = "@evofork/cli";
 
@@ -59,6 +61,14 @@ export async function runCli(
 
     if (namespace === "patch" && command === "create-pr") {
       return await createPrCommand(parsedArgs.manifestPath, commandArgs, io);
+    }
+
+    if (namespace === "demo" && command === "seed") {
+      return await demoSeedCommand(parsedArgs.manifestPath, commandArgs, io);
+    }
+
+    if (namespace === "route" && command === "test") {
+      return await routeTestCommand(parsedArgs.manifestPath, commandArgs, io);
     }
 
     if (namespace === "eval" && command === "patch-boundary") {
@@ -154,6 +164,8 @@ function printHelp(io: CliIO): void {
   io.stdout.log("  evo surface explain <surfaceId> [--manifest <path>]");
   io.stdout.log("  evo insight generate --surface <surfaceId> [--text <feedback>] [--manifest <path>]");
   io.stdout.log("  evo patch create-pr --rfc <rfcId> --surface <surfaceId> [--manifest <path>]");
+  io.stdout.log("  evo demo seed [--surface <surfaceId>] [--count <n>] [--output <path>] [--json]");
+  io.stdout.log("  evo route test <surfaceId> --user <userId> [--segment <key=value>] [--rollout <0-100>] [--json]");
   io.stdout.log("  evo eval patch-boundary [--surface <surfaceId>] [--changed-file <path>] [--diff <path>]");
   io.stdout.log("  evo eval security [--changed-file <path>] [--diff <path>]");
   io.stdout.log("  evo eval report [--surface <surfaceId>] [--changed-file <path>] [--diff <path>]");
@@ -316,6 +328,100 @@ async function createPrCommand(
   return 0;
 }
 
+async function demoSeedCommand(
+  manifestPath: string,
+  args: string[],
+  io: CliIO
+): Promise<number> {
+  const manifest = await loadManifest(manifestPath);
+  const surfaceId = readOption(args, "surface") ?? "pricing.hero";
+  const surface = findSurface(manifest, surfaceId);
+
+  if (!surface) {
+    io.stderr.error(`Surface not found: ${surfaceId}`);
+    return 1;
+  }
+
+  const count = parsePositiveInteger(readOption(args, "count") ?? "20", "count");
+  const outputPath = readOption(args, "output") ?? ".evofork/demo-seed.json";
+  const seed = {
+    appId: manifest.app.id,
+    surfaceId,
+    generatedAt: new Date().toISOString(),
+    signals: createDemoSignals(manifest.app.id, surfaceId, count)
+  };
+
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(`${outputPath}`, `${JSON.stringify(seed, null, 2)}\n`, "utf8");
+
+  if (hasFlag(args, "json")) {
+    io.stdout.log(JSON.stringify({ outputPath, ...seed }, null, 2));
+    return 0;
+  }
+
+  io.stdout.log(`Seeded ${seed.signals.length} demo signals for ${surfaceId}`);
+  io.stdout.log(`Output: ${outputPath}`);
+  io.stdout.log("Next: pnpm evo insight generate --surface pricing.hero");
+  return 0;
+}
+
+async function routeTestCommand(
+  manifestPath: string,
+  args: string[],
+  io: CliIO
+): Promise<number> {
+  const [surfaceId] = args.filter((arg) => !arg.startsWith("--"));
+
+  if (!surfaceId) {
+    io.stderr.error("Missing required surfaceId");
+    return 1;
+  }
+
+  const manifest = await loadManifest(manifestPath);
+  const surface = findSurface(manifest, surfaceId);
+
+  if (!surface) {
+    io.stderr.error(`Surface not found: ${surfaceId}`);
+    return 1;
+  }
+
+  const userId = readOption(args, "user") ?? readOption(args, "user-id") ?? "user_123";
+  const segmentHints = readSegmentOptions(args);
+  const rolloutPercentage = parseRolloutPercentage(readOption(args, "rollout") ?? "100");
+  const branchName = readOption(args, "branch") ?? `${surfaceId}.new-user-clarity.v1`;
+  const branch: RouterBranch = {
+    id: readOption(args, "branch-id") ?? "br_cli_route_test",
+    appId: manifest.app.id,
+    surfaceId,
+    branchName,
+    status: "active",
+    targetSegments: segmentHints,
+    rolloutPercentage,
+    priority: 10
+  };
+  const result = resolveVariant(
+    {
+      appId: manifest.app.id,
+      surfaceId,
+      userId,
+      segmentHints,
+      personalizationOptOut: hasFlag(args, "opt-out")
+    },
+    [branch]
+  );
+
+  if (hasFlag(args, "json")) {
+    io.stdout.log(JSON.stringify(result, null, 2));
+    return 0;
+  }
+
+  io.stdout.log(`Matched branch: ${result.variant}`);
+  io.stdout.log(`Reason: ${result.reason}`);
+  io.stdout.log(`Sticky: ${String(result.sticky)}`);
+  io.stdout.log(`Surface: ${result.surfaceId}`);
+  return 0;
+}
+
 async function evalPatchBoundaryCommand(
   manifestPath: string,
   args: string[],
@@ -405,6 +511,92 @@ function readChangedFilesOption(args: string[]): string[] {
   ];
 
   return values.flatMap(splitChangedFiles);
+}
+
+function readSegmentOptions(args: string[]): Record<string, string | number | boolean> {
+  return Object.fromEntries(
+    readRepeatedOption(args, "segment").map((segment) => {
+      const separatorIndex = segment.indexOf("=");
+
+      if (separatorIndex <= 0) {
+        throw new Error(`Invalid --segment value: ${segment}. Expected key=value.`);
+      }
+
+      const key = segment.slice(0, separatorIndex).trim();
+      const value = parseSegmentValue(segment.slice(separatorIndex + 1).trim());
+
+      if (!key) {
+        throw new Error(`Invalid --segment value: ${segment}. Expected key=value.`);
+      }
+
+      return [key, value] as const;
+    })
+  );
+}
+
+function parseSegmentValue(value: string): string | number | boolean {
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  const numeric = Number(value);
+
+  return Number.isFinite(numeric) && value.trim() !== "" ? numeric : value;
+}
+
+function hasFlag(args: string[], name: string): boolean {
+  const flag = `--${name}`;
+
+  return args.includes(flag);
+}
+
+function parsePositiveInteger(value: string, name: string): number {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`--${name} must be a positive integer`);
+  }
+
+  return parsed;
+}
+
+function parseRolloutPercentage(value: string): number {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+    throw new Error("--rollout must be an integer from 0 to 100");
+  }
+
+  return parsed;
+}
+
+function createDemoSignals(appId: string, surfaceId: string, count: number) {
+  const texts = [
+    "I cannot tell which plan is right for a small team.",
+    "Basic and Pro sound too similar on the pricing page.",
+    "I need a clearer recommendation before signing up.",
+    "The primary CTA does not explain what happens next."
+  ];
+
+  return Array.from({ length: count }, (_, index) => ({
+    id: `demo_signal_${String(index + 1).padStart(3, "0")}`,
+    appId,
+    surfaceId,
+    source: "demo_seed",
+    signalType: index % 4 === 3 ? "cta_unclear" : "pricing_confusion",
+    text: texts[index % texts.length],
+    evidenceCount: 1,
+    segmentHints: {
+      lifecycle_stage: "new_user",
+      company_size: index % 2 === 0 ? "1-10" : "11-50"
+    },
+    piiRemoved: true,
+    llmEligible: true
+  }));
 }
 
 function readRepeatedOption(args: string[], name: string): string[] {

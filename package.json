@@ -1,6 +1,6 @@
 {
   "name": "evofork",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Open-source framework for building self-evolving applications.",
   "type": "module",
@@ -15,6 +15,7 @@
     "test": "TURBO_TELEMETRY_DISABLED=1 turbo test",
     "typecheck": "TURBO_TELEMETRY_DISABLED=1 turbo typecheck",
     "lint": "TURBO_TELEMETRY_DISABLED=1 turbo lint",
+    "verify": "pnpm build && pnpm test && pnpm typecheck && pnpm lint && pnpm evo manifest validate && pnpm evo eval report --surface pricing.hero --changed-file apps/demo-nextjs/src/app/pricing/PricingHero.tsx",
     "evo": "node packages/cli/dist/index.js"
   },
   "devDependencies": {

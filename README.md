@@ -199,10 +199,7 @@ Install and validate the workspace:
 
 ```bash
 pnpm install
-pnpm build
-pnpm test
-pnpm typecheck
-pnpm lint
+pnpm verify
 ```
 
 Validate the manifest and inspect the demo surface:
@@ -216,16 +213,20 @@ pnpm evo surface explain pricing.hero
 Generate a mock RFC and local PR preview:
 
 ```bash
+pnpm evo demo seed
 pnpm evo insight generate --surface pricing.hero
 pnpm evo patch create-pr --rfc rfc_pricing_clarity_001 --surface pricing.hero
 ```
 
-Run Eval Gate locally:
+Run Eval Gate and route matching locally:
 
 ```bash
 pnpm evo eval report \
   --surface pricing.hero \
   --changed-file apps/demo-nextjs/src/app/pricing/PricingHero.tsx
+pnpm evo route test pricing.hero \
+  --user user_123 \
+  --segment lifecycle_stage=new_user
 ```
 
 Run the local demo stack:
@@ -245,6 +246,8 @@ API server:        http://127.0.0.1:3333/health
 The local UI demo covers feedback submission, mock RFC generation, local PR/eval
 preview, branch registration, segment routing, and branch revert. The API server
 uses in-memory repositories in v0.1.
+
+See [Quickstart](./docs/QUICKSTART.md) for the full local walkthrough.
 
 ---
 
@@ -356,6 +359,7 @@ and are not invoked by default.
 - [Construction Guide](./CONSTRUCTION.md)
 - [MVP Spec](./MVP_SPEC.md)
 - [Architecture](./docs/ARCHITECTURE.md)
+- [Quickstart](./docs/QUICKSTART.md)
 - [Manifest Spec](./docs/MANIFEST_SPEC.md)
 - [API Spec](./docs/API_SPEC.md)
 - [Data Model](./docs/DATA_MODEL.md)
@@ -544,10 +548,7 @@ evofork/
 
 ```bash
 pnpm install
-pnpm build
-pnpm test
-pnpm typecheck
-pnpm lint
+pnpm verify
 ```
 
 验证 manifest 并查看 demo surface：
@@ -561,16 +562,20 @@ pnpm evo surface explain pricing.hero
 生成 mock RFC 和本地 PR 预览：
 
 ```bash
+pnpm evo demo seed
 pnpm evo insight generate --surface pricing.hero
 pnpm evo patch create-pr --rfc rfc_pricing_clarity_001 --surface pricing.hero
 ```
 
-本地运行 Eval Gate：
+本地运行 Eval Gate 和路由测试：
 
 ```bash
 pnpm evo eval report \
   --surface pricing.hero \
   --changed-file apps/demo-nextjs/src/app/pricing/PricingHero.tsx
+pnpm evo route test pricing.hero \
+  --user user_123 \
+  --segment lifecycle_stage=new_user
 ```
 
 启动本地 demo：
@@ -588,6 +593,8 @@ API server:        http://127.0.0.1:3333/health
 ```
 
 本地 UI demo 覆盖反馈提交、mock RFC 生成、本地 PR/eval 预览、分支注册、分群路由和分支回滚。v0.1 API server 使用内存仓库。
+
+完整本地演示步骤见 [Quickstart](./docs/QUICKSTART.md)。
 
 ---
 
@@ -653,6 +660,7 @@ v0.1 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 G
 - [施工指南](./CONSTRUCTION.md)
 - [MVP 规格](./MVP_SPEC.md)
 - [架构](./docs/ARCHITECTURE.md)
+- [快速开始](./docs/QUICKSTART.md)
 - [Manifest 规格](./docs/MANIFEST_SPEC.md)
 - [API 规格](./docs/API_SPEC.md)
 - [数据模型](./docs/DATA_MODEL.md)

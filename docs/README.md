@@ -1,6 +1,7 @@
 # EvoFork Docs
 
 - [Architecture](./ARCHITECTURE.md)
+- [Quickstart](./QUICKSTART.md)
 - [Manifest Spec](./MANIFEST_SPEC.md)
 - [API Spec](./API_SPEC.md)
 - [Data Model](./DATA_MODEL.md)
