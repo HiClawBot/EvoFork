@@ -16,6 +16,7 @@ export type AdminBranch = {
   branchName: string;
   status: string;
   rolloutPercentage: number;
+  evalReport?: unknown;
 };
 
 export type AdminAuditLog = {
@@ -24,6 +25,7 @@ export type AdminAuditLog = {
   actor: string;
   event: string;
   resourceId: string;
+  payload?: Record<string, unknown>;
 };
 
 export type AdminSnapshot = {

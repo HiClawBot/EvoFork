@@ -75,7 +75,11 @@ describe(appId, () => {
             targetSegments: {
               lifecycle_stage: "new_user"
             },
-            rolloutPercentage: 100
+            rolloutPercentage: 100,
+            evalReport: {
+              status: "passed",
+              recommendation: "safe_for_canary_after_approval"
+            }
           }
         ],
         auditLogs: [
@@ -102,10 +106,17 @@ describe(appId, () => {
     expect(seed.signals[0].signalType).toBe("pricing_confusion");
     expect(seed.branches).toHaveLength(1);
     expect(seed.branches[0].status).toBe("active");
+    expect(seed.branches[0].evalReport).toMatchObject({
+      status: "passed",
+      recommendation: "safe_for_canary_after_approval"
+    });
     expect(seed.auditLogs).toHaveLength(1);
     expect(seed.auditLogs[0]).toMatchObject({
       event: "branch_rollout_changed",
-      resourceId: "br_demo_seed"
+      resourceId: "br_demo_seed",
+      payload: {
+        rolloutPercentage: 100
+      }
     });
   });
 
