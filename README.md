@@ -238,6 +238,13 @@ pnpm evo branch create --surface pricing.hero --branch pricing.hero.local-draft.
 pnpm evo branch revert br_demo_seed --reason "local rollback"
 ```
 
+Check governance policy decisions:
+
+```bash
+pnpm evo policy check --surface pricing.hero --change copy --json
+pnpm evo policy check --surface pricing.hero --rollout 10 --approved --json
+```
+
 Run the local demo stack:
 
 ```bash
@@ -386,6 +393,7 @@ and are not invoked by default.
 - [API Spec](./docs/API_SPEC.md)
 - [Data Model](./docs/DATA_MODEL.md)
 - [Database](./docs/DATABASE.md)
+- [Policy Engine](./docs/POLICY_ENGINE.md)
 - [Eval Gate](./docs/EVAL_GATE.md)
 - [Router](./docs/ROUTER.md)
 - [Release Checklist](./docs/RELEASE_CHECKLIST.md)
@@ -609,6 +617,13 @@ pnpm evo branch create --surface pricing.hero --branch pricing.hero.local-draft.
 pnpm evo branch revert br_demo_seed --reason "local rollback"
 ```
 
+检查治理 policy 决策：
+
+```bash
+pnpm evo policy check --surface pricing.hero --change copy --json
+pnpm evo policy check --surface pricing.hero --rollout 10 --approved --json
+```
+
 启动本地 demo：
 
 ```bash
@@ -708,6 +723,7 @@ v0.1 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 G
 - [API 规格](./docs/API_SPEC.md)
 - [数据模型](./docs/DATA_MODEL.md)
 - [数据库](./docs/DATABASE.md)
+- [Policy Engine](./docs/POLICY_ENGINE.md)
 - [Eval Gate](./docs/EVAL_GATE.md)
 - [Router](./docs/ROUTER.md)
 - [发布清单](./docs/RELEASE_CHECKLIST.md)

@@ -18,6 +18,7 @@ describe("@evofork/cli", () => {
     expect(io.output()).toContain("EvoFork CLI");
     expect(io.output()).toContain("evo manifest validate");
     expect(io.output()).toContain("evo db status");
+    expect(io.output()).toContain("evo policy check");
     expect(io.output()).toContain("evo eval patch-boundary");
   });
 
@@ -115,6 +116,99 @@ describe("@evofork/cli", () => {
 
     expect(prepared.branchName).toBe("pricing.hero.new-user-clarity.v1");
     expect(prepared.body).toContain("## Manifest Boundary");
+  });
+
+  it("checks policy decisions for allowed surface changes", async () => {
+    const io = createTestIo();
+
+    await expect(
+      runCli(
+        [
+          "policy",
+          "check",
+          "--surface",
+          "pricing.hero",
+          "--change",
+          "copy",
+          "--manifest",
+          manifestPath,
+          "--json"
+        ],
+        io
+      )
+    ).resolves.toBe(0);
+
+    const decision = JSON.parse(io.output()) as { allowed: boolean };
+    expect(decision.allowed).toBe(true);
+  });
+
+  it("blocks policy decisions for forbidden changes", async () => {
+    const io = createTestIo();
+
+    await expect(
+      runCli(
+        [
+          "policy",
+          "check",
+          "--surface",
+          "pricing.hero",
+          "--change",
+          "payment_logic",
+          "--manifest",
+          manifestPath,
+          "--json"
+        ],
+        io
+      )
+    ).resolves.toBe(1);
+
+    const decision = JSON.parse(io.output()) as { allowed: boolean; reasons: string[] };
+    expect(decision.allowed).toBe(false);
+    expect(decision.reasons.join("\n")).toContain("payment_logic");
+  });
+
+  it("requires approval for guarded rollout policy decisions", async () => {
+    const blockedIo = createTestIo();
+    const approvedIo = createTestIo();
+
+    await expect(
+      runCli(
+        [
+          "policy",
+          "check",
+          "--surface",
+          "pricing.hero",
+          "--rollout",
+          "10",
+          "--manifest",
+          manifestPath,
+          "--json"
+        ],
+        blockedIo
+      )
+    ).resolves.toBe(1);
+    await expect(
+      runCli(
+        [
+          "policy",
+          "check",
+          "--surface",
+          "pricing.hero",
+          "--rollout",
+          "10",
+          "--approved",
+          "--manifest",
+          manifestPath,
+          "--json"
+        ],
+        approvedIo
+      )
+    ).resolves.toBe(0);
+
+    const blocked = JSON.parse(blockedIo.output()) as { requiredApprovals: string[] };
+    const approved = JSON.parse(approvedIo.output()) as { allowed: boolean };
+    expect(blocked.requiredApprovals).toContain("human_approval");
+    expect(approved.allowed).toBe(true);
   });
 
   it("seeds deterministic demo signals", async () => {

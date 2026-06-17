@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.2.0 - Governance Policy Engine
+
+The first v0.2 governance component is now available.
+
+### Added
+
+- `@evofork/policy-engine` service package for auditable allow/block policy decisions.
+- Policy checks for manifest surfaces, allowed/forbidden change categories, global high-risk categories, rollout limits, and human approval requirements.
+- `pnpm evo policy check` CLI command.
+- Bilingual Policy Engine documentation.
+
+### Changed
+
+- CLI now exposes a governance command before patch or rollout work.
+- Workspace package versions are bumped to `0.2.0`.
+
+### Notes
+
+This is a minimal governance core, not a complex permission system. It does not merge, deploy, or override Eval Gate.
+
 ## v0.1.6 - Database Migration CLI
 
 Database migrations can now be inspected and applied from the EvoFork CLI.

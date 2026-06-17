@@ -119,6 +119,9 @@ importers:
       '@evofork/patch-agent':
         specifier: workspace:*
         version: link:../../services/patch-agent
+      '@evofork/policy-engine':
+        specifier: workspace:*
+        version: link:../../services/policy-engine
       '@evofork/router':
         specifier: workspace:*
         version: link:../../services/router
@@ -203,6 +206,12 @@ importers:
       '@evofork/adapter-llm-mock':
         specifier: workspace:*
         version: link:../../adapters/llm-mock
+      '@evofork/manifest-parser':
+        specifier: workspace:*
+        version: link:../../packages/manifest-parser
+
+  services/policy-engine:
+    dependencies:
       '@evofork/manifest-parser':
         specifier: workspace:*
         version: link:../../packages/manifest-parser
