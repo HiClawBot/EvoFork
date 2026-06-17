@@ -18,10 +18,15 @@ import {
   type LocalDemoState
 } from "@evofork/branch-registry";
 import {
+  createEvalInputFromFixture,
   evaluatePatchBoundary,
   evaluateSecurityPolicy,
+  findSafetyFixture,
+  listSafetyFixtures,
   runEvalGate,
-  type EvalInput
+  type EvalInput,
+  type EvalReport,
+  type SafetyFixture
 } from "@evofork/eval-gate";
 import {
   listMigrationFiles,
@@ -167,6 +172,14 @@ export async function runCli(
       return await evalReportCommand(parsedArgs.manifestPath, commandArgs, io);
     }
 
+    if (namespace === "eval" && command === "fixtures") {
+      return evalFixturesCommand(commandArgs, io);
+    }
+
+    if (namespace === "eval" && command === "fixture") {
+      return await evalFixtureCommand(parsedArgs.manifestPath, commandArgs, io);
+    }
+
     io.stderr.error(`Unknown command: ${parsedArgs.commandArgs.join(" ")}`);
     printHelp(io);
     return 1;
@@ -262,6 +275,8 @@ function printHelp(io: CliIO): void {
   io.stdout.log("  evo eval patch-boundary [--surface <surfaceId>] [--changed-file <path>] [--diff <path>]");
   io.stdout.log("  evo eval security [--changed-file <path>] [--diff <path>] [--allow-risk <category>]");
   io.stdout.log("  evo eval report [--surface <surfaceId>] [--changed-file <path>] [--diff <path>]");
+  io.stdout.log("  evo eval fixtures [--json]");
+  io.stdout.log("  evo eval fixture <fixtureId> [--json]");
 }
 
 async function validateManifestCommand(manifestPath: string, io: CliIO): Promise<number> {
@@ -1035,6 +1050,94 @@ async function evalReportCommand(
   return report.status === "passed" ? 0 : 1;
 }
 
+function evalFixturesCommand(args: string[], io: CliIO): number {
+  const fixtures = listSafetyFixtures();
+
+  if (hasFlag(args, "json")) {
+    io.stdout.log(
+      JSON.stringify(
+        {
+          fixtures: fixtures.map((fixture) => ({
+            id: fixture.id,
+            title: fixture.title,
+            surfaceId: fixture.surfaceId,
+            expected: fixture.expected
+          }))
+        },
+        null,
+        2
+      )
+    );
+    return 0;
+  }
+
+  for (const fixture of fixtures) {
+    io.stdout.log(
+      `${fixture.id}\t${fixture.surfaceId}\t${fixture.expected.evalStatus}\t${fixture.title}`
+    );
+  }
+
+  return 0;
+}
+
+async function evalFixtureCommand(
+  manifestPath: string,
+  args: string[],
+  io: CliIO
+): Promise<number> {
+  const fixtureId = readPositionalArgs(args)[0];
+
+  if (!fixtureId) {
+    throw new Error("Missing required fixtureId");
+  }
+
+  const fixture = findSafetyFixture(fixtureId);
+
+  if (!fixture) {
+    throw new Error(`Safety fixture not found: ${fixtureId}`);
+  }
+
+  const manifest = await loadManifest(manifestPath);
+  const evalReport = runEvalGate(createEvalInputFromFixture(manifest, fixture));
+  const policyDecision = fixture.policy
+    ? evaluatePolicy({
+        manifest,
+        surfaceId: fixture.surfaceId,
+        actor: "safety-fixture",
+        ...fixture.policy
+      })
+    : undefined;
+  const passed = safetyFixturePassed(fixture, evalReport, policyDecision);
+  const result = {
+    fixture: {
+      id: fixture.id,
+      title: fixture.title,
+      surfaceId: fixture.surfaceId
+    },
+    expected: fixture.expected,
+    evalReport,
+    policyDecision,
+    passed
+  };
+
+  if (hasFlag(args, "json")) {
+    io.stdout.log(JSON.stringify(result, null, 2));
+    return passed ? 0 : 1;
+  }
+
+  io.stdout.log(`Fixture: ${fixture.id}`);
+  io.stdout.log(`Eval: ${evalReport.status} (expected ${fixture.expected.evalStatus})`);
+  if (policyDecision && fixture.expected.policyAllowed !== undefined) {
+    io.stdout.log(
+      `Policy: ${policyDecision.allowed ? "allowed" : "blocked"} (expected ${
+        fixture.expected.policyAllowed ? "allowed" : "blocked"
+      })`
+    );
+  }
+  io.stdout.log(`Result: ${passed ? "passed" : "failed"}`);
+  return passed ? 0 : 1;
+}
+
 async function readEvalInput(manifestPath: string, args: string[]): Promise<EvalInput> {
   const manifest = await loadManifest(manifestPath);
   const surfaceId = readOption(args, "surface");
@@ -1061,6 +1164,31 @@ async function readEvalInput(manifestPath: string, args: string[]): Promise<Eval
     diff,
     allowedSecurityCategories: readRepeatedOption(args, "allow-risk")
   };
+}
+
+function safetyFixturePassed(
+  fixture: SafetyFixture,
+  evalReport: EvalReport,
+  policyDecision: PolicyDecision | undefined
+): boolean {
+  const evalMatches =
+    evalReport.status === fixture.expected.evalStatus &&
+    sameStringSet(evalReport.failures, fixture.expected.failedChecks);
+  const policyMatches =
+    fixture.expected.policyAllowed === undefined ||
+    policyDecision?.allowed === fixture.expected.policyAllowed;
+
+  return evalMatches && policyMatches;
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  const sortedLeft = [...left].sort();
+  const sortedRight = [...right].sort();
+
+  return (
+    sortedLeft.length === sortedRight.length &&
+    sortedLeft.every((value, index) => value === sortedRight[index])
+  );
 }
 
 function readOption(args: string[], name: string): string | undefined {

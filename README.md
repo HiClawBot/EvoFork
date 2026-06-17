@@ -225,6 +225,8 @@ Run Eval Gate and route matching locally:
 pnpm evo eval report \
   --surface pricing.hero \
   --changed-file apps/demo-nextjs/src/app/pricing/PricingHero.tsx
+pnpm evo eval fixtures
+pnpm evo eval fixture payment-logic-blocked --json
 pnpm evo route test pricing.hero \
   --user user_123 \
   --segment lifecycle_stage=new_user
@@ -269,7 +271,8 @@ The local UI demo covers feedback submission, mock RFC generation, local PR/eval
 preview, branch registration, segment routing, and branch revert. The API server
 uses in-memory repositories in v0.1.
 
-See [Quickstart](./docs/QUICKSTART.md) for the full local walkthrough.
+See [Quickstart](./docs/QUICKSTART.md) for the full local walkthrough and
+[Safety Fixtures](./docs/SAFETY_FIXTURES.md) for reusable safety checks.
 
 Optional PostgreSQL schema preview:
 
@@ -400,6 +403,7 @@ and are not invoked by default.
 - [Data Model](./docs/DATA_MODEL.md)
 - [Database](./docs/DATABASE.md)
 - [Policy Engine](./docs/POLICY_ENGINE.md)
+- [Safety Fixtures](./docs/SAFETY_FIXTURES.md)
 - [Eval Gate](./docs/EVAL_GATE.md)
 - [Router](./docs/ROUTER.md)
 - [Release Checklist](./docs/RELEASE_CHECKLIST.md)
@@ -611,6 +615,8 @@ pnpm evo patch create-pr --rfc rfc_pricing_clarity_001 --surface pricing.hero
 pnpm evo eval report \
   --surface pricing.hero \
   --changed-file apps/demo-nextjs/src/app/pricing/PricingHero.tsx
+pnpm evo eval fixtures
+pnpm evo eval fixture payment-logic-blocked --json
 pnpm evo route test pricing.hero \
   --user user_123 \
   --segment lifecycle_stage=new_user
@@ -652,7 +658,8 @@ API server:        http://127.0.0.1:3333/health
 
 本地 UI demo 覆盖反馈提交、mock RFC 生成、本地 PR/eval 预览、分支注册、分群路由和分支回滚。v0.1 API server 使用内存仓库。
 
-完整本地演示步骤见 [Quickstart](./docs/QUICKSTART.md)。
+完整本地演示步骤见 [Quickstart](./docs/QUICKSTART.md)，可复用安全检查见
+[Safety Fixtures](./docs/SAFETY_FIXTURES.md)。
 
 可选 PostgreSQL schema 预览：
 
@@ -736,6 +743,7 @@ v0.1 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 G
 - [数据模型](./docs/DATA_MODEL.md)
 - [数据库](./docs/DATABASE.md)
 - [Policy Engine](./docs/POLICY_ENGINE.md)
+- [Safety Fixtures](./docs/SAFETY_FIXTURES.md)
 - [Eval Gate](./docs/EVAL_GATE.md)
 - [Router](./docs/ROUTER.md)
 - [发布清单](./docs/RELEASE_CHECKLIST.md)

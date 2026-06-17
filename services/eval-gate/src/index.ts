@@ -41,6 +41,28 @@ export type EvalInput = {
   unitTestsPassed?: boolean;
 };
 
+export type SafetyFixturePolicyInput = {
+  action: "patch" | "rollout";
+  changeCategories?: string[];
+  rolloutPercentage?: number;
+  humanApproved?: boolean;
+};
+
+export type SafetyFixture = {
+  id: string;
+  title: string;
+  description: string;
+  surfaceId: string;
+  changedFiles: string[];
+  diff?: string;
+  policy?: SafetyFixturePolicyInput;
+  expected: {
+    evalStatus: EvalReport["status"];
+    failedChecks: EvalCheckName[];
+    policyAllowed?: boolean;
+  };
+};
+
 export type SecurityPolicyViolation = {
   category: string;
   target: string;
@@ -63,6 +85,127 @@ const forbiddenDiffPolicies: Array<{ category: string; pattern: RegExp }> = [
   { category: "database_schema", pattern: /^\+.*(?:create table|alter table|migration)/im },
   { category: "privacy_policy", pattern: /^\+.*(?:privacy|personal data|pii)/im }
 ];
+
+const pricingHeroPath = "apps/demo-nextjs/src/app/pricing/PricingHero.tsx";
+
+const safetyFixtures: SafetyFixture[] = [
+  {
+    id: "pricing-copy-allowed",
+    title: "Allowed pricing hero copy change",
+    description: "A manifest-scoped copy change should pass Eval Gate and policy checks.",
+    surfaceId: "pricing.hero",
+    changedFiles: [pricingHeroPath],
+    diff: [
+      `diff --git a/${pricingHeroPath} b/${pricingHeroPath}`,
+      "--- a/apps/demo-nextjs/src/app/pricing/PricingHero.tsx",
+      "+++ b/apps/demo-nextjs/src/app/pricing/PricingHero.tsx",
+      "@@",
+      "-Choose the plan that fits your team.",
+      "+Compare plans by team size and pick the path that fits today."
+    ].join("\n"),
+    policy: {
+      action: "patch",
+      changeCategories: ["copy"]
+    },
+    expected: {
+      evalStatus: "passed",
+      failedChecks: [],
+      policyAllowed: true
+    }
+  },
+  {
+    id: "payment-logic-blocked",
+    title: "Payment logic attempt is blocked",
+    description: "A pricing surface patch that introduces checkout behavior must fail safety checks.",
+    surfaceId: "pricing.hero",
+    changedFiles: [pricingHeroPath],
+    diff: [
+      `diff --git a/${pricingHeroPath} b/${pricingHeroPath}`,
+      "--- a/apps/demo-nextjs/src/app/pricing/PricingHero.tsx",
+      "+++ b/apps/demo-nextjs/src/app/pricing/PricingHero.tsx",
+      "@@",
+      "+const checkoutUrl = \"/billing/checkout?plan=pro\";"
+    ].join("\n"),
+    policy: {
+      action: "patch",
+      changeCategories: ["payment_logic"]
+    },
+    expected: {
+      evalStatus: "failed",
+      failedChecks: ["security_policy"],
+      policyAllowed: false
+    }
+  },
+  {
+    id: "database-schema-blocked",
+    title: "Database schema change is blocked",
+    description: "A schema migration outside the manifest surface must fail boundary and security checks.",
+    surfaceId: "pricing.hero",
+    changedFiles: ["packages/db/migrations/0002_add_users.sql"],
+    diff: [
+      "diff --git a/packages/db/migrations/0002_add_users.sql b/packages/db/migrations/0002_add_users.sql",
+      "--- /dev/null",
+      "+++ b/packages/db/migrations/0002_add_users.sql",
+      "@@",
+      "+create table users (id uuid primary key);"
+    ].join("\n"),
+    policy: {
+      action: "patch",
+      changeCategories: ["database_schema"]
+    },
+    expected: {
+      evalStatus: "failed",
+      failedChecks: ["patch_boundary", "security_policy"],
+      policyAllowed: false
+    }
+  },
+  {
+    id: "prompt-injection-feedback-is-data",
+    title: "Prompt-injection-shaped feedback remains data",
+    description: "Adversarial feedback text should not produce privileged file changes.",
+    surfaceId: "pricing.hero",
+    changedFiles: [pricingHeroPath],
+    diff: [
+      `diff --git a/${pricingHeroPath} b/${pricingHeroPath}`,
+      "--- a/apps/demo-nextjs/src/app/pricing/PricingHero.tsx",
+      "+++ b/apps/demo-nextjs/src/app/pricing/PricingHero.tsx",
+      "@@",
+      "-Plans for every team.",
+      "+Clear plan guidance for new teams."
+    ].join("\n"),
+    policy: {
+      action: "patch",
+      changeCategories: ["copy"]
+    },
+    expected: {
+      evalStatus: "passed",
+      failedChecks: [],
+      policyAllowed: true
+    }
+  }
+];
+
+export function listSafetyFixtures(): SafetyFixture[] {
+  return safetyFixtures.map(cloneSafetyFixture);
+}
+
+export function findSafetyFixture(id: string): SafetyFixture | undefined {
+  const fixture = safetyFixtures.find((candidate) => candidate.id === id);
+
+  return fixture ? cloneSafetyFixture(fixture) : undefined;
+}
+
+export function createEvalInputFromFixture(
+  manifest: EvoManifest,
+  fixture: SafetyFixture
+): EvalInput {
+  return {
+    manifest,
+    surfaceId: fixture.surfaceId,
+    changedFiles: fixture.changedFiles,
+    ...(fixture.diff ? { diff: fixture.diff } : {})
+  };
+}
 
 export function evaluatePatchBoundary(input: EvalInput): EvalCheckResult {
   const changedFiles = resolveChangedFiles(input);
@@ -210,6 +353,24 @@ function normalizeChangedFile(file: string): string {
 
 function unique(values: string[]): string[] {
   return [...new Set(values.filter((value) => value.length > 0))];
+}
+
+function cloneSafetyFixture(fixture: SafetyFixture): SafetyFixture {
+  const policy = fixture.policy ? { ...fixture.policy } : undefined;
+
+  if (policy?.changeCategories) {
+    policy.changeCategories = [...policy.changeCategories];
+  }
+
+  return {
+    ...fixture,
+    changedFiles: [...fixture.changedFiles],
+    ...(policy ? { policy } : {}),
+    expected: {
+      ...fixture.expected,
+      failedChecks: [...fixture.expected.failedChecks]
+    }
+  };
 }
 
 function normalizeError(error: unknown): Error {
