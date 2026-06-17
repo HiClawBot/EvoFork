@@ -10,6 +10,7 @@ import {
   createLocalBranch,
   emptyLocalDemoState,
   readLocalDemoState,
+  recordLocalBranchAuditLog,
   revertLocalBranch,
   rolloutLocalBranch,
   serviceId,
@@ -204,6 +205,46 @@ describe(serviceId, () => {
       "branch_approved",
       "branch_rollout_changed",
       "branch_reverted"
+    ]);
+  });
+
+  it("records explicit local branch audit events", () => {
+    const state = emptyLocalDemoState("local-state.json");
+    const created = createLocalBranch(
+      state,
+      {
+        appId: "demo-saas",
+        surfaceId: "pricing.hero",
+        branchName: "pricing.hero.local.v1",
+        actor: "maintainer"
+      },
+      "2026-06-18T00:00:00.000Z"
+    );
+
+    const auditLog = recordLocalBranchAuditLog(
+      state,
+      created.branch.id,
+      "maintainer",
+      "policy_allowed",
+      {
+        action: "rollout",
+        rolloutPercentage: 5
+      },
+      "2026-06-18T00:01:00.000Z"
+    );
+
+    expect(auditLog).toMatchObject({
+      id: "audit_local_002",
+      event: "policy_allowed",
+      resourceId: created.branch.id,
+      payload: {
+        action: "rollout",
+        rolloutPercentage: 5
+      }
+    });
+    expect(state.auditLogs.map((log) => log.event)).toEqual([
+      "branch_created",
+      "policy_allowed"
     ]);
   });
 

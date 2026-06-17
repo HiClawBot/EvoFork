@@ -23,7 +23,16 @@ pnpm evo policy check --surface pricing.hero --change payment_logic --json
 pnpm evo policy check --surface pricing.hero --rollout 10 --approved --json
 ```
 
-The v0.2.0 policy engine is intentionally small. It is not an enterprise
+Local branch rollout also uses the policy engine before changing state:
+
+```bash
+pnpm evo branch rollout br_local_001 --percentage 25 --approved --json
+```
+
+If approval is required and missing, EvoFork writes a `policy_blocked` audit log
+and leaves the branch rollout unchanged.
+
+The v0.2 policy engine is intentionally small. It is not an enterprise
 permission system, and it does not merge, deploy, or override Eval Gate.
 
 ## 中文
@@ -47,5 +56,14 @@ pnpm evo policy check --surface pricing.hero --change payment_logic --json
 pnpm evo policy check --surface pricing.hero --rollout 10 --approved --json
 ```
 
-v0.2.0 的 Policy Engine 刻意保持很小。它不是企业权限系统，也不会合并、
+本地 branch rollout 也会在修改 state 前调用 policy engine：
+
+```bash
+pnpm evo branch rollout br_local_001 --percentage 25 --approved --json
+```
+
+如果缺少必需审批，EvoFork 会写入 `policy_blocked` audit log，并保持 branch
+rollout 不变。
+
+v0.2 的 Policy Engine 刻意保持很小。它不是企业权限系统，也不会合并、
 部署或绕过 Eval Gate。

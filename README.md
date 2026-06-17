@@ -52,15 +52,15 @@ It does not:
 ## Status
 
 ```text
-Project status: v0.1 Developer Preview
+Project status: v0.2 Developer Preview
 Primary language: TypeScript
 Initial target: Next.js + Node.js applications
 License: Apache-2.0
 ```
 
-v0.1 is a local-first developer preview. It includes the minimal trusted loop
-with mock/local adapters so the demo runs without production LLM, GitHub, or
-database credentials.
+v0.2 is a local-first developer preview. It includes the minimal trusted loop,
+plus initial governance policy checks, with mock/local adapters so the demo runs
+without production LLM, GitHub, or database credentials.
 
 ---
 
@@ -235,8 +235,14 @@ Manage local branch state without production credentials:
 ```bash
 pnpm evo branch list
 pnpm evo branch create --surface pricing.hero --branch pricing.hero.local-draft.v1
+pnpm evo branch approve br_local_001
+pnpm evo branch rollout br_local_001 --percentage 25 --approved
 pnpm evo branch revert br_demo_seed --reason "local rollback"
 ```
+
+Rollout commands are checked against manifest policy before state changes. A blocked
+rollout writes a local `policy_blocked` audit entry and leaves the branch rollout
+unchanged.
 
 Check governance policy decisions:
 
@@ -472,13 +478,14 @@ EvoFork 不是黑盒自动写码系统。
 ## 状态
 
 ```text
-项目状态：v0.1 Developer Preview
+项目状态：v0.2 Developer Preview
 主要语言：TypeScript
 初始目标：Next.js + Node.js 应用
 许可证：Apache-2.0
 ```
 
-v0.1 是本地优先的开发者预览版，包含最小可信闭环。它使用 mock/local adapter，因此本地演示不需要生产 LLM、GitHub 或数据库凭证。
+v0.2 是本地优先的开发者预览版，包含最小可信闭环和初始治理 policy 校验。
+它使用 mock/local adapter，因此本地演示不需要生产 LLM、GitHub 或数据库凭证。
 
 ---
 
@@ -614,8 +621,13 @@ pnpm evo route test pricing.hero \
 ```bash
 pnpm evo branch list
 pnpm evo branch create --surface pricing.hero --branch pricing.hero.local-draft.v1
+pnpm evo branch approve br_local_001
+pnpm evo branch rollout br_local_001 --percentage 25 --approved
 pnpm evo branch revert br_demo_seed --reason "local rollback"
 ```
+
+rollout 命令会在修改 state 前执行 manifest policy 校验。被阻断的 rollout
+会写入本地 `policy_blocked` audit 记录，并保持 branch rollout 不变。
 
 检查治理 policy 决策：
 

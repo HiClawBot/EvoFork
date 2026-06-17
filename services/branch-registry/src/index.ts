@@ -471,6 +471,19 @@ export function rolloutLocalBranch(
   };
 }
 
+export function recordLocalBranchAuditLog(
+  state: LocalDemoState,
+  id: string,
+  actor: string,
+  event: string,
+  payload: Record<string, unknown>,
+  now = new Date().toISOString()
+): AuditLogRecord {
+  const branch = requireLocalBranch(state, id);
+
+  return appendLocalAuditLog(state, branch, actor, event, payload, now);
+}
+
 export function revertLocalBranch(
   state: LocalDemoState,
   id: string,
