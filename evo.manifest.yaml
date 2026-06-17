@@ -1,0 +1,72 @@
+app:
+  id: demo-saas
+  name: Demo SaaS
+  default_branch: main
+
+surfaces:
+  - id: pricing.hero
+    type: react-component
+    path: apps/demo-nextjs/src/app/pricing/PricingHero.tsx
+    owner: growth-team
+    allowed_changes:
+      - copy
+      - layout
+      - cta_text
+    forbidden_changes:
+      - payment_logic
+      - authentication
+      - database_schema
+      - pricing_amount
+    target_metrics:
+      primary: pricing_to_signup_conversion
+      guardrails:
+        - page_error_rate
+        - support_ticket_rate
+        - p95_latency
+    tests:
+      - pnpm test --filter demo-nextjs
+      - pnpm e2e --filter demo-nextjs
+    rollout:
+      max_auto_percentage: 5
+      require_human_approval: true
+
+  - id: onboarding.signup
+    type: react-component
+    path: apps/demo-nextjs/src/app/onboarding/SignupForm.tsx
+    owner: growth-team
+    allowed_changes:
+      - copy
+      - layout
+      - validation_message
+      - field_order
+    forbidden_changes:
+      - authentication
+      - password_hashing
+      - database_schema
+    target_metrics:
+      primary: activation_rate
+      guardrails:
+        - signup_error_rate
+        - p95_latency
+    rollout:
+      max_auto_percentage: 5
+      require_human_approval: true
+
+  - id: docs.quickstart
+    type: markdown-doc
+    path: docs/quickstart.md
+    owner: docs-team
+    allowed_changes:
+      - wording
+      - examples
+      - structure
+    forbidden_changes:
+      - security_policy
+      - license_terms
+    target_metrics:
+      primary: docs_helpfulness
+      guardrails:
+        - support_ticket_rate
+    rollout:
+      max_auto_percentage: 25
+      require_human_approval: false

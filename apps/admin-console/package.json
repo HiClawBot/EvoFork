@@ -1,0 +1,29 @@
+{
+  "name": "@evofork/admin-console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "NEXT_TELEMETRY_DISABLED=1 next build",
+    "dev": "NEXT_TELEMETRY_DISABLED=1 next dev -p 3001",
+    "start": "NEXT_TELEMETRY_DISABLED=1 next start -p 3001",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@evofork/eval-gate": "workspace:*",
+    "@evofork/insight-worker": "workspace:*",
+    "@evofork/manifest-parser": "workspace:*",
+    "@evofork/patch-agent": "workspace:*",
+    "next": "^16.2.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3"
+  }
+}

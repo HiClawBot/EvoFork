@@ -1,0 +1,27 @@
+{
+  "name": "evofork",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source framework for building self-evolving applications.",
+  "type": "module",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "build": "TURBO_TELEMETRY_DISABLED=1 turbo build",
+    "dev": "TURBO_TELEMETRY_DISABLED=1 turbo dev --parallel",
+    "test": "TURBO_TELEMETRY_DISABLED=1 turbo test",
+    "typecheck": "TURBO_TELEMETRY_DISABLED=1 turbo typecheck",
+    "lint": "TURBO_TELEMETRY_DISABLED=1 turbo lint",
+    "evo": "node packages/cli/dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,683 @@
+# EvoFork
+
+[English](#english) | [中文](#中文)
+
+## English
+
+**EvoFork** is an open-source framework for building self-evolving applications.
+
+It turns user feedback, support intelligence, and product metrics into safe, auditable, testable version forks.
+
+> Feedback to Fork. Fork to Learning. Learning to Safer Software.
+
+---
+
+## What EvoFork does
+
+EvoFork helps applications evolve through a controlled loop:
+
+```text
+Feedback -> Insight -> RFC -> Pull Request -> Eval Gate -> Version Fork -> Segment Routing -> Observability -> Rollback or Promotion
+```
+
+It enables:
+
+- collecting product feedback from apps
+- ingesting AI customer support summaries
+- detecting user friction with LLMs
+- generating structured product RFCs
+- creating constrained pull requests
+- registering version forks
+- routing variants to user segments
+- observing branch performance
+- rolling back unsafe or underperforming changes
+
+---
+
+## What EvoFork does not do
+
+EvoFork is intentionally not a black-box auto-coding system.
+
+It does not:
+
+- let AI freely edit your production system
+- bypass tests, reviews, or governance
+- auto-deploy risky changes
+- fork code per individual user
+- change payment, auth, legal, privacy, or database logic without explicit approval
+- treat user feedback as trusted instructions
+
+---
+
+## Status
+
+```text
+Project status: v0.1 Developer Preview
+Primary language: TypeScript
+Initial target: Next.js + Node.js applications
+License: Apache-2.0
+```
+
+v0.1 is a local-first developer preview. It includes the minimal trusted loop
+with mock/local adapters so the demo runs without production LLM, GitHub, or
+database credentials.
+
+---
+
+## Core concepts
+
+### Surface
+
+A surface is a part of an application that may evolve.
+
+Examples:
+
+```text
+pricing.hero
+onboarding.signup
+admin.bulk_import
+support.refund_policy_answer
+docs.quickstart
+```
+
+### Manifest
+
+The manifest tells EvoFork what AI is allowed to change.
+
+```yaml
+app:
+  id: demo-saas
+  name: Demo SaaS
+  default_branch: main
+
+surfaces:
+  - id: pricing.hero
+    type: react-component
+    path: apps/demo-nextjs/src/app/pricing/PricingHero.tsx
+    owner: growth-team
+    allowed_changes:
+      - copy
+      - layout
+      - cta_text
+    forbidden_changes:
+      - payment_logic
+      - authentication
+      - database_schema
+      - pricing_amount
+    target_metrics:
+      primary: pricing_to_signup_conversion
+      guardrails:
+        - page_error_rate
+        - support_ticket_rate
+        - p95_latency
+    rollout:
+      max_auto_percentage: 5
+      require_human_approval: true
+```
+
+### Branch
+
+A branch is a governed version fork of a surface.
+
+```text
+pricing.hero.new-user-clarity.v1
+pricing.hero.developer-focused.v1
+onboarding.signup.mobile-ja.v1
+```
+
+### Router
+
+The router decides which variant a user should see.
+
+```json
+{
+  "surfaceId": "pricing.hero",
+  "variant": "pricing.hero.new-user-clarity.v1",
+  "reason": "matched_segment_and_rollout",
+  "sticky": true
+}
+```
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TD
+    A[Application SDK] --> B[Signal Hub]
+    C[AI Support Summaries] --> B
+    B --> D[Insight/RFC Agent]
+    D --> E[Patch Agent]
+    E --> F[GitHub Pull Request]
+    F --> G[Eval Gate]
+    G --> H[Branch Registry]
+    H --> I[Router]
+    I --> A
+    A --> J[Observability Adapter]
+    J --> B
+```
+
+---
+
+## Repository structure
+
+```text
+evofork/
+├── packages/
+│   ├── sdk-core/
+│   ├── sdk-react/
+│   ├── sdk-node/
+│   ├── openfeature-provider/
+│   └── manifest-parser/
+├── services/
+│   ├── api-server/
+│   ├── signal-hub/
+│   ├── insight-worker/
+│   ├── patch-agent/
+│   ├── eval-gate/
+│   ├── branch-registry/
+│   └── router/
+├── apps/
+│   ├── admin-console/
+│   └── demo-nextjs/
+├── adapters/
+│   ├── llm-openai-compatible/
+│   ├── llm-local/
+│   ├── github/
+│   ├── opentelemetry/
+│   └── argo-rollouts/
+├── docs/
+├── examples/
+└── .github/
+```
+
+---
+
+## Quick Start
+
+Install and validate the workspace:
+
+```bash
+pnpm install
+pnpm build
+pnpm test
+pnpm typecheck
+pnpm lint
+```
+
+Validate the manifest and inspect the demo surface:
+
+```bash
+pnpm evo manifest validate
+pnpm evo surface list
+pnpm evo surface explain pricing.hero
+```
+
+Generate a mock RFC and local PR preview:
+
+```bash
+pnpm evo insight generate --surface pricing.hero
+pnpm evo patch create-pr --rfc rfc_pricing_clarity_001 --surface pricing.hero
+```
+
+Run Eval Gate locally:
+
+```bash
+pnpm evo eval report \
+  --surface pricing.hero \
+  --changed-file apps/demo-nextjs/src/app/pricing/PricingHero.tsx
+```
+
+Run the local demo stack:
+
+```bash
+pnpm dev
+```
+
+Then open:
+
+```text
+Demo pricing page: http://127.0.0.1:3000/pricing
+Admin console:     http://127.0.0.1:3001
+API server:        http://127.0.0.1:3333/health
+```
+
+The local UI demo covers feedback submission, mock RFC generation, local PR/eval
+preview, branch registration, segment routing, and branch revert. The API server
+uses in-memory repositories in v0.1.
+
+---
+
+## SDK example
+
+```tsx
+import { EvoProvider, EvoSlot, useEvoVariant } from "@evofork/sdk-react";
+
+export default function PricingPage() {
+  const variant = useEvoVariant("pricing.hero", {
+    userId: "user_123",
+    segmentHints: {
+      lifecycle_stage: "new_user",
+      company_size: "1-10",
+      locale: "zh-CN"
+    }
+  });
+
+  return (
+    <EvoProvider appId="demo-saas">
+      <EvoSlot
+        surface="pricing.hero"
+        variant={variant}
+        fallback={<DefaultPricingHero />}
+      />
+    </EvoProvider>
+  );
+}
+```
+
+Submit feedback:
+
+```ts
+evo.feedback({
+  surface: "pricing.hero",
+  rating: -1,
+  text: "I do not understand the difference between Basic and Pro.",
+  context: {
+    page: "/pricing",
+    lifecycle_stage: "new_user"
+  },
+  consent: true
+});
+```
+
+---
+
+## API Preview
+
+```http
+POST /v1/signals
+POST /v1/feedback
+POST /v1/support-summaries
+GET  /v1/surfaces/:surfaceId/signals
+GET  /v1/branches
+POST /v1/branches
+GET  /v1/branches/:id
+POST /v1/branches/:id/approve
+POST /v1/branches/:id/rollout
+POST /v1/branches/:id/revert
+POST /v1/branches/:id/sunset
+GET  /v1/audit-logs
+POST /v1/variants/resolve
+POST /v1/events
+```
+
+RFC and PR generation are available through the CLI and the local admin console
+in v0.1. Production GitHub writes are intentionally behind adapter boundaries
+and are not invoked by default.
+
+---
+
+## Development roadmap
+
+### v0.1 Developer Preview
+
+- Manifest parser
+- SDK core
+- React SDK
+- Signal Hub
+- RFC Agent
+- Patch Agent
+- Eval Gate
+- Branch Registry
+- Router
+- Demo Next.js app
+- Admin Console MVP
+
+### v0.2 Governance
+
+- Policy engine
+- Audit logs
+- GitHub App
+- OpenFeature provider
+- OpenTelemetry adapter
+
+### v0.3 Progressive Delivery
+
+- Canary analysis
+- Argo Rollouts adapter
+- Automated rollback
+- Branch promotion/sunset workflows
+
+---
+
+## Documentation
+
+- [Whitepaper](./WHITEPAPER.md)
+- [Construction Guide](./CONSTRUCTION.md)
+- [MVP Spec](./MVP_SPEC.md)
+- [Architecture](./docs/ARCHITECTURE.md)
+- [Manifest Spec](./docs/MANIFEST_SPEC.md)
+- [API Spec](./docs/API_SPEC.md)
+- [Data Model](./docs/DATA_MODEL.md)
+- [Eval Gate](./docs/EVAL_GATE.md)
+- [Router](./docs/ROUTER.md)
+- [Release Checklist](./docs/RELEASE_CHECKLIST.md)
+- [Codex Tasks](./CODEX_TASKS.md)
+- [Security](./SECURITY.md)
+
+---
+
+## Contributing
+
+Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening pull requests.
+
+All AI-generated changes must:
+
+- reference a manifest surface
+- include tests or explain why tests are not applicable
+- include an eval report when behavior changes
+- avoid unauthorized paths
+- avoid secrets and production credentials
+
+---
+
+## License
+
+Apache-2.0. See [LICENSE](./LICENSE).
+
+---
+
+## 中文
+
+**EvoFork** 是一个用于构建自进化应用的开源框架。
+
+它把用户反馈、客服智能摘要和产品指标转化为安全、可审计、可测试的版本分叉。
+
+> Feedback to Fork. Fork to Learning. Learning to Safer Software.
+
+---
+
+## EvoFork 能做什么
+
+EvoFork 通过受控闭环帮助应用持续演化：
+
+```text
+Feedback -> Insight -> RFC -> Pull Request -> Eval Gate -> Version Fork -> Segment Routing -> Observability -> Rollback or Promotion
+```
+
+它支持：
+
+- 从应用中收集产品反馈
+- 接入 AI 客服摘要
+- 识别用户使用阻塞点
+- 生成结构化产品 RFC
+- 创建受约束的 PR 预览
+- 注册版本分叉
+- 按用户分群路由不同版本
+- 观测分支效果
+- 回滚不安全或效果不佳的变更
+
+---
+
+## EvoFork 不做什么
+
+EvoFork 不是黑盒自动写码系统。
+
+它不会：
+
+- 允许 AI 任意编辑生产系统
+- 绕过测试、评审或治理流程
+- 自动部署高风险变更
+- 为每个用户创建代码级 fork
+- 在没有明确批准时修改支付、认证、法律、隐私或数据库逻辑
+- 把用户反馈当成可信指令执行
+
+---
+
+## 状态
+
+```text
+项目状态：v0.1 Developer Preview
+主要语言：TypeScript
+初始目标：Next.js + Node.js 应用
+许可证：Apache-2.0
+```
+
+v0.1 是本地优先的开发者预览版，包含最小可信闭环。它使用 mock/local adapter，因此本地演示不需要生产 LLM、GitHub 或数据库凭证。
+
+---
+
+## 核心概念
+
+### Surface
+
+Surface 是应用中允许演化的一个区域。
+
+示例：
+
+```text
+pricing.hero
+onboarding.signup
+admin.bulk_import
+support.refund_policy_answer
+docs.quickstart
+```
+
+### Manifest
+
+Manifest 定义 EvoFork 允许 AI 修改什么。
+
+```yaml
+app:
+  id: demo-saas
+  name: Demo SaaS
+  default_branch: main
+
+surfaces:
+  - id: pricing.hero
+    type: react-component
+    path: apps/demo-nextjs/src/app/pricing/PricingHero.tsx
+    owner: growth-team
+    allowed_changes:
+      - copy
+      - layout
+      - cta_text
+    forbidden_changes:
+      - payment_logic
+      - authentication
+      - database_schema
+      - pricing_amount
+    target_metrics:
+      primary: pricing_to_signup_conversion
+      guardrails:
+        - page_error_rate
+        - support_ticket_rate
+        - p95_latency
+    rollout:
+      max_auto_percentage: 5
+      require_human_approval: true
+```
+
+### Branch
+
+Branch 是某个 surface 的受治理版本分叉。
+
+```text
+pricing.hero.new-user-clarity.v1
+pricing.hero.developer-focused.v1
+onboarding.signup.mobile-ja.v1
+```
+
+### Router
+
+Router 决定用户看到哪个变体。
+
+```json
+{
+  "surfaceId": "pricing.hero",
+  "variant": "pricing.hero.new-user-clarity.v1",
+  "reason": "matched_segment_and_rollout",
+  "sticky": true
+}
+```
+
+---
+
+## 仓库结构
+
+```text
+evofork/
+├── packages/
+├── services/
+├── apps/
+├── adapters/
+├── docs/
+├── examples/
+└── .github/
+```
+
+---
+
+## 快速开始
+
+安装依赖并验证工作区：
+
+```bash
+pnpm install
+pnpm build
+pnpm test
+pnpm typecheck
+pnpm lint
+```
+
+验证 manifest 并查看 demo surface：
+
+```bash
+pnpm evo manifest validate
+pnpm evo surface list
+pnpm evo surface explain pricing.hero
+```
+
+生成 mock RFC 和本地 PR 预览：
+
+```bash
+pnpm evo insight generate --surface pricing.hero
+pnpm evo patch create-pr --rfc rfc_pricing_clarity_001 --surface pricing.hero
+```
+
+本地运行 Eval Gate：
+
+```bash
+pnpm evo eval report \
+  --surface pricing.hero \
+  --changed-file apps/demo-nextjs/src/app/pricing/PricingHero.tsx
+```
+
+启动本地 demo：
+
+```bash
+pnpm dev
+```
+
+然后打开：
+
+```text
+Demo pricing page: http://127.0.0.1:3000/pricing
+Admin console:     http://127.0.0.1:3001
+API server:        http://127.0.0.1:3333/health
+```
+
+本地 UI demo 覆盖反馈提交、mock RFC 生成、本地 PR/eval 预览、分支注册、分群路由和分支回滚。v0.1 API server 使用内存仓库。
+
+---
+
+## API 预览
+
+```http
+POST /v1/signals
+POST /v1/feedback
+POST /v1/support-summaries
+GET  /v1/surfaces/:surfaceId/signals
+GET  /v1/branches
+POST /v1/branches
+GET  /v1/branches/:id
+POST /v1/branches/:id/approve
+POST /v1/branches/:id/rollout
+POST /v1/branches/:id/revert
+POST /v1/branches/:id/sunset
+GET  /v1/audit-logs
+POST /v1/variants/resolve
+POST /v1/events
+```
+
+v0.1 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 GitHub 写入被放在 adapter 边界之后，默认不会调用。
+
+---
+
+## 开发路线图
+
+### v0.1 Developer Preview
+
+- Manifest parser
+- SDK core
+- React SDK
+- Signal Hub
+- RFC Agent
+- Patch Agent
+- Eval Gate
+- Branch Registry
+- Router
+- Demo Next.js app
+- Admin Console MVP
+
+### v0.2 Governance
+
+- Policy engine
+- Audit logs
+- GitHub App
+- OpenFeature provider
+- OpenTelemetry adapter
+
+### v0.3 Progressive Delivery
+
+- Canary analysis
+- Argo Rollouts adapter
+- Automated rollback
+- Branch promotion/sunset workflows
+
+---
+
+## 文档
+
+- [白皮书](./WHITEPAPER.md)
+- [施工指南](./CONSTRUCTION.md)
+- [MVP 规格](./MVP_SPEC.md)
+- [架构](./docs/ARCHITECTURE.md)
+- [Manifest 规格](./docs/MANIFEST_SPEC.md)
+- [API 规格](./docs/API_SPEC.md)
+- [数据模型](./docs/DATA_MODEL.md)
+- [Eval Gate](./docs/EVAL_GATE.md)
+- [Router](./docs/ROUTER.md)
+- [发布清单](./docs/RELEASE_CHECKLIST.md)
+- [Codex 任务](./CODEX_TASKS.md)
+- [安全](./SECURITY.md)
+
+---
+
+## 贡献
+
+提交 PR 前请阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+
+所有 AI 生成的变更都必须：
+
+- 关联 manifest surface
+- 包含测试，或说明为什么不需要测试
+- 在行为变更时包含 eval report
+- 避免未授权路径
+- 避免提交密钥和生产凭证
+
+---
+
+## 许可
+
+Apache-2.0。详见 [LICENSE](./LICENSE)。

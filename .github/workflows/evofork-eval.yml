@@ -1,0 +1,50 @@
+name: EvoFork Eval Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  evofork-eval:
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate manifest
+        run: pnpm evo manifest validate
+
+      - name: Check manifest patch boundary
+        run: pnpm evo eval patch-boundary
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Check security policy
+        run: pnpm evo eval security
+
+      - name: Write eval report
+        run: pnpm evo eval report
