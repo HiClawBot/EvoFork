@@ -4,8 +4,8 @@
 
 ## English
 
-This guide runs the local EvoFork v0.1 developer loop without production LLM,
-GitHub, database, or deployment credentials.
+This guide runs the local EvoFork v0.3 developer loop without production LLM,
+GitHub, database, observability, or deployment credentials.
 
 Prerequisites:
 
@@ -166,7 +166,30 @@ requires approval and `--approved` is missing, the command writes a
 When the API server is unavailable, the Admin Console also uses this local seed
 state for demo branch creation and rollback.
 
-## 9. Run the UI Demo
+## 9. Observe Canary Health
+
+List deterministic rollout observation fixtures:
+
+```bash
+pnpm evo observe fixtures
+```
+
+Analyze a healthy canary:
+
+```bash
+pnpm evo observe canary --fixture healthy --json
+```
+
+Analyze a regression fixture:
+
+```bash
+pnpm evo observe canary --fixture regression --json
+```
+
+The regression fixture recommends `rollback` and exits with `1`. This is an
+auditable recommendation only; it does not deploy, merge, or roll back anything.
+
+## 10. Run the UI Demo
 
 ```bash
 pnpm dev
@@ -197,13 +220,14 @@ Suggested demo path:
 - If ports are already in use, stop the existing local server or change the app
   dev port before running `pnpm dev`.
 - The mock LLM path does not need `OPENAI_API_KEY`.
-- GitHub PR creation is not invoked by default in v0.1.
+- GitHub PR creation is not invoked by default in v0.3.
+- Rollout Observer does not change production traffic or branch state.
 
 ---
 
 ## 中文
 
-本指南用于跑通本地 EvoFork v0.1 开发者闭环，不需要生产 LLM、GitHub、数据库或部署凭证。
+本指南用于跑通本地 EvoFork v0.3 开发者闭环，不需要生产 LLM、GitHub、数据库、观测或部署凭证。
 
 前置要求：
 
@@ -355,7 +379,30 @@ rollout 命令会在修改本地 state 前执行 policy 校验。如果 manifest
 
 当 API server 不可用时，Admin Console 也会使用这个本地 seed state 来创建 demo branch 和回滚 branch。
 
-## 9. 运行 UI Demo
+## 9. 观测 Canary 健康状态
+
+列出确定性的 rollout observation fixtures：
+
+```bash
+pnpm evo observe fixtures
+```
+
+分析健康 canary：
+
+```bash
+pnpm evo observe canary --fixture healthy --json
+```
+
+分析回归 fixture：
+
+```bash
+pnpm evo observe canary --fixture regression --json
+```
+
+回归 fixture 会建议 `rollback` 并返回退出码 `1`。这只是可审计建议，
+不会自动部署、合并或回滚任何内容。
+
+## 10. 运行 UI Demo
 
 ```bash
 pnpm dev
@@ -385,4 +432,5 @@ API server:        http://127.0.0.1:3333/health
 - 如果 `pnpm evo ...` 找不到 CLI dist entrypoint，先运行 `pnpm build`。
 - 如果端口已被占用，停止已有本地服务，或修改 dev port 后再运行 `pnpm dev`。
 - mock LLM 路径不需要 `OPENAI_API_KEY`。
-- v0.1 默认不会调用 GitHub 创建真实 PR。
+- v0.3 默认不会调用 GitHub 创建真实 PR。
+- Rollout Observer 不会修改生产流量或 branch state。

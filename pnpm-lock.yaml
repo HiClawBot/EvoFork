@@ -122,6 +122,9 @@ importers:
       '@evofork/policy-engine':
         specifier: workspace:*
         version: link:../../services/policy-engine
+      '@evofork/rollout-observer':
+        specifier: workspace:*
+        version: link:../../services/rollout-observer
       '@evofork/router':
         specifier: workspace:*
         version: link:../../services/router
@@ -215,6 +218,8 @@ importers:
       '@evofork/manifest-parser':
         specifier: workspace:*
         version: link:../../packages/manifest-parser
+
+  services/rollout-observer: {}
 
   services/router:
     dependencies:
