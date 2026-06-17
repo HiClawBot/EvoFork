@@ -282,6 +282,54 @@ describe("@evofork/cli", () => {
     expect(listIo.output()).toContain("pricing.hero.new-user-clarity.v1");
   });
 
+  it("creates draft local branch fixtures", async () => {
+    const io = createTestIo();
+    const outputPath = join(await mkdtemp(join(tmpdir(), "evofork-branch-create-")), "seed.json");
+
+    await expect(
+      runCli(
+        [
+          "branch",
+          "create",
+          "--surface",
+          "pricing.hero",
+          "--branch",
+          "pricing.hero.local-draft.v1",
+          "--segment",
+          "lifecycle_stage=new_user",
+          "--state",
+          outputPath,
+          "--json",
+          "--manifest",
+          manifestPath
+        ],
+        io
+      )
+    ).resolves.toBe(0);
+
+    const output = JSON.parse(io.output()) as {
+      branch: { id: string; status: string; branchName: string; rolloutPercentage: number };
+      auditLog: { event: string };
+    };
+    const state = JSON.parse(await readFile(outputPath, "utf8")) as {
+      branches: Array<{ id: string; status: string; branchName: string }>;
+      auditLogs: Array<{ event: string }>;
+    };
+
+    expect(output.branch).toMatchObject({
+      id: "br_local_001",
+      status: "draft",
+      branchName: "pricing.hero.local-draft.v1",
+      rolloutPercentage: 0
+    });
+    expect(output.auditLog.event).toBe("branch_created");
+    expect(state.branches[0]).toMatchObject({
+      id: "br_local_001",
+      status: "draft"
+    });
+    expect(state.auditLogs[0].event).toBe("branch_created");
+  });
+
   it("approves and rolls out draft local branch fixtures", async () => {
     const approveIo = createTestIo();
     const rolloutIo = createTestIo();
