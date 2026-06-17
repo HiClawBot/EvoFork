@@ -213,3 +213,5 @@ export type AuditLogDbRecord = InferSelectModel<typeof auditLogs>;
 export type NewAuditLogDbRecord = InferInsertModel<typeof auditLogs>;
 export type EvalReportRecord = InferSelectModel<typeof evalReports>;
 export type NewEvalReportRecord = InferInsertModel<typeof evalReports>;
+
+export * from "./migrations.js";

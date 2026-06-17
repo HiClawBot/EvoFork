@@ -23,6 +23,10 @@ import {
   type EvalInput
 } from "@evofork/eval-gate";
 import {
+  listMigrationFiles,
+  type MigrationFile
+} from "@evofork/db";
+import {
   findSurface,
   listSurfaces,
   loadManifest,
@@ -49,8 +53,10 @@ const valueOptionNames = new Set([
   "changed-file",
   "changed-files",
   "count",
+  "database-url",
   "diff",
   "file",
+  "migrations-dir",
   "output",
   "percentage",
   "priority",
@@ -132,6 +138,14 @@ export async function runCli(
 
     if (namespace === "branch" && command === "sunset") {
       return await branchSunsetCommand(commandArgs, io);
+    }
+
+    if (namespace === "db" && command === "status") {
+      return await dbStatusCommand(commandArgs, io);
+    }
+
+    if (namespace === "db" && command === "migrate") {
+      return await dbMigrateCommand(commandArgs, io);
     }
 
     if (namespace === "eval" && command === "patch-boundary") {
@@ -235,6 +249,8 @@ function printHelp(io: CliIO): void {
   io.stdout.log("  evo branch rollout <branchId> --percentage <0-100> [--state <path>] [--actor <name>] [--json]");
   io.stdout.log("  evo branch revert <branchId> --reason <reason> [--state <path>] [--actor <name>] [--json]");
   io.stdout.log("  evo branch sunset <branchId> [--state <path>] [--actor <name>] [--json]");
+  io.stdout.log("  evo db status [--migrations-dir <path>] [--json]");
+  io.stdout.log("  evo db migrate [--database-url <url>] [--migrations-dir <path>] [--dry-run] [--json]");
   io.stdout.log("  evo eval patch-boundary [--surface <surfaceId>] [--changed-file <path>] [--diff <path>]");
   io.stdout.log("  evo eval security [--changed-file <path>] [--diff <path>] [--allow-risk <category>]");
   io.stdout.log("  evo eval report [--surface <surfaceId>] [--changed-file <path>] [--diff <path>]");
@@ -749,6 +765,93 @@ function readBranchStatePath(args: string[]): string {
   return readOption(args, "state") ?? readOption(args, "file") ?? defaultLocalDemoStatePath;
 }
 
+async function dbStatusCommand(args: string[], io: CliIO): Promise<number> {
+  const migrations = await listMigrationFiles(readOption(args, "migrations-dir"));
+
+  if (hasFlag(args, "json")) {
+    io.stdout.log(
+      JSON.stringify(
+        {
+          migrations
+        },
+        null,
+        2
+      )
+    );
+    return 0;
+  }
+
+  io.stdout.log(`Migrations: ${migrations.length}`);
+
+  for (const migration of migrations) {
+    io.stdout.log(`- ${migration.id}\t${migration.path}`);
+  }
+
+  return 0;
+}
+
+async function dbMigrateCommand(args: string[], io: CliIO): Promise<number> {
+  const migrations = await listMigrationFiles(readOption(args, "migrations-dir"));
+  const databaseUrl = readOption(args, "database-url") ?? process.env.DATABASE_URL;
+  const dryRun = hasFlag(args, "dry-run");
+
+  if (dryRun) {
+    printMigrationResult(
+      io,
+      {
+        dryRun,
+        migrations,
+        applied: []
+      },
+      hasFlag(args, "json")
+    );
+    return 0;
+  }
+
+  if (!databaseUrl) {
+    throw new Error("evo db migrate requires --database-url or DATABASE_URL unless --dry-run is used");
+  }
+
+  const applied: MigrationFile[] = [];
+
+  for (const migration of migrations) {
+    await execPsql(databaseUrl, migration.path);
+    applied.push(migration);
+  }
+
+  printMigrationResult(
+    io,
+    {
+      dryRun,
+      migrations,
+      applied
+    },
+    hasFlag(args, "json")
+  );
+
+  return 0;
+}
+
+function printMigrationResult(
+  io: CliIO,
+  result: { dryRun: boolean; migrations: MigrationFile[]; applied: MigrationFile[] },
+  json: boolean
+): void {
+  if (json) {
+    io.stdout.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  const action = result.dryRun ? "Would apply" : "Applied";
+  const migrations = result.dryRun ? result.migrations : result.applied;
+
+  io.stdout.log(`${action} ${migrations.length} migration(s):`);
+
+  for (const migration of migrations) {
+    io.stdout.log(`- ${migration.id}\t${migration.path}`);
+  }
+}
+
 async function evalPatchBoundaryCommand(
   manifestPath: string,
   args: string[],
@@ -1036,6 +1139,28 @@ async function execGit(args: string[]): Promise<string> {
     execFile("git", args, { cwd: process.cwd() }, (error, stdout) => {
       resolve(error ? "" : String(stdout));
     });
+  });
+}
+
+async function execPsql(databaseUrl: string, migrationPath: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    execFile(
+      "psql",
+      [databaseUrl, "-v", "ON_ERROR_STOP=1", "-f", migrationPath],
+      { cwd: process.cwd() },
+      (error, _stdout, stderr) => {
+        if (error) {
+          const message =
+            "code" in error && error.code === "ENOENT"
+              ? "psql is required to run evo db migrate"
+              : String(stderr || error.message);
+          reject(new Error(message));
+          return;
+        }
+
+        resolve();
+      }
+    );
   });
 }
 

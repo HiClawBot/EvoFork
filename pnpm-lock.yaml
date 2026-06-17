@@ -104,6 +104,9 @@ importers:
       '@evofork/branch-registry':
         specifier: workspace:*
         version: link:../../services/branch-registry
+      '@evofork/db':
+        specifier: workspace:*
+        version: link:../db
       '@evofork/eval-gate':
         specifier: workspace:*
         version: link:../../services/eval-gate

@@ -262,8 +262,10 @@ Optional PostgreSQL schema preview:
 
 ```bash
 docker compose up -d postgres
-psql "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork" \
-  -f packages/db/migrations/0001_initial.sql
+pnpm evo db status
+pnpm evo db migrate --dry-run
+pnpm evo db migrate \
+  --database-url "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork"
 ```
 
 The database schema is available in `@evofork/db`, but the v0.1 demo still runs
@@ -629,8 +631,10 @@ API server:        http://127.0.0.1:3333/health
 
 ```bash
 docker compose up -d postgres
-psql "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork" \
-  -f packages/db/migrations/0001_initial.sql
+pnpm evo db status
+pnpm evo db migrate --dry-run
+pnpm evo db migrate \
+  --database-url "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork"
 ```
 
 数据库 schema 位于 `@evofork/db`，但 v0.1 demo 默认仍不需要数据库。

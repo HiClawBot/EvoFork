@@ -1,6 +1,6 @@
 {
   "name": "@evofork/cli",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@evofork/branch-registry": "workspace:*",
+    "@evofork/db": "workspace:*",
     "@evofork/eval-gate": "workspace:*",
     "@evofork/insight-worker": "workspace:*",
     "@evofork/manifest-parser": "workspace:*",
