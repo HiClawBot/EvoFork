@@ -37,7 +37,7 @@ jobs:
         run: pnpm evo manifest validate
 
       - name: Check manifest patch boundary
-        run: pnpm evo eval patch-boundary
+        run: pnpm evo eval patch-boundary --surface pricing.hero --changed-file apps/demo-nextjs/src/app/pricing/PricingHero.tsx
 
       - name: Typecheck
         run: pnpm typecheck
@@ -49,4 +49,4 @@ jobs:
         run: pnpm evo eval security
 
       - name: Write eval report
-        run: pnpm evo eval report
+        run: pnpm evo eval report --surface pricing.hero --changed-file apps/demo-nextjs/src/app/pricing/PricingHero.tsx
