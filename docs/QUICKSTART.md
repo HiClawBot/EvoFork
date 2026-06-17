@@ -83,6 +83,15 @@ pnpm evo eval patch-boundary \
   --changed-file apps/demo-nextjs/src/app/billing/Checkout.tsx
 ```
 
+Run bundled safety fixtures:
+
+```bash
+pnpm evo eval fixtures
+pnpm evo eval fixture payment-logic-blocked --json
+```
+
+Blocked fixtures return success when EvoFork blocks them as expected.
+
 ## 7. Test Routing
 
 ```bash
@@ -266,6 +275,15 @@ pnpm evo eval patch-boundary \
   --surface pricing.hero \
   --changed-file apps/demo-nextjs/src/app/billing/Checkout.tsx
 ```
+
+运行内置 safety fixtures：
+
+```bash
+pnpm evo eval fixtures
+pnpm evo eval fixture payment-logic-blocked --json
+```
+
+如果 EvoFork 按预期阻断了危险行为，被阻断的 fixture 也会返回成功。
 
 ## 7. 测试路由
 

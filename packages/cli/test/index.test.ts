@@ -19,6 +19,7 @@ describe("@evofork/cli", () => {
     expect(io.output()).toContain("evo manifest validate");
     expect(io.output()).toContain("evo db status");
     expect(io.output()).toContain("evo policy check");
+    expect(io.output()).toContain("evo eval fixture");
     expect(io.output()).toContain("evo eval patch-boundary");
   });
 
@@ -864,6 +865,48 @@ describe("@evofork/cli", () => {
     expect(report.status).toBe("passed");
     expect(report.checks.patch_boundary).toBe(true);
     expect(report.checks.security_policy).toBe(true);
+  });
+
+  it("lists bundled safety fixtures", async () => {
+    const io = createTestIo();
+
+    await expect(runCli(["eval", "fixtures", "--json"], io)).resolves.toBe(0);
+
+    const output = JSON.parse(io.output()) as {
+      fixtures: Array<{ id: string; expected: { evalStatus: string } }>;
+    };
+    expect(output.fixtures.map((fixture) => fixture.id)).toContain("payment-logic-blocked");
+    expect(output.fixtures.map((fixture) => fixture.id)).toContain(
+      "prompt-injection-feedback-is-data"
+    );
+  });
+
+  it("runs a blocked safety fixture as an expected pass", async () => {
+    const io = createTestIo();
+
+    await expect(
+      runCli(
+        [
+          "eval",
+          "fixture",
+          "payment-logic-blocked",
+          "--manifest",
+          manifestPath,
+          "--json"
+        ],
+        io
+      )
+    ).resolves.toBe(0);
+
+    const output = JSON.parse(io.output()) as {
+      passed: boolean;
+      evalReport: { status: string; failures: string[] };
+      policyDecision: { allowed: boolean };
+    };
+    expect(output.passed).toBe(true);
+    expect(output.evalReport.status).toBe("failed");
+    expect(output.evalReport.failures).toEqual(["security_policy"]);
+    expect(output.policyDecision.allowed).toBe(false);
   });
 });
 

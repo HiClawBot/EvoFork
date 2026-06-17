@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { validateManifest } from "@evofork/manifest-parser";
 import {
+  createEvalInputFromFixture,
   evaluatePatchBoundary,
   evaluateSecurityPolicy,
+  listSafetyFixtures,
   runEvalGate,
   serviceId
 } from "../src/index.js";
@@ -92,5 +94,25 @@ describe(serviceId, () => {
     expect(report.checks.patch_boundary).toBe(false);
     expect(report.failures).toContain("patch_boundary");
     expect(report.recommendation).toBe("blocked_until_failures_resolved");
+  });
+
+  it("runs bundled safety fixtures with expected eval outcomes", () => {
+    const fixtures = listSafetyFixtures();
+
+    expect(fixtures.map((fixture) => fixture.id)).toEqual([
+      "pricing-copy-allowed",
+      "payment-logic-blocked",
+      "database-schema-blocked",
+      "prompt-injection-feedback-is-data"
+    ]);
+
+    for (const fixture of fixtures) {
+      const report = runEvalGate(createEvalInputFromFixture(manifest, fixture));
+
+      expect(report.status, fixture.id).toBe(fixture.expected.evalStatus);
+      expect([...report.failures].sort(), fixture.id).toEqual(
+        [...fixture.expected.failedChecks].sort()
+      );
+    }
   });
 });

@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.2.2 - Safety Fixtures
+
+Safety fixtures are now available for release checks and CI smoke validation.
+
+### Added
+
+- Bundled Eval Gate safety fixtures for allowed copy, payment logic attempts, database schema attempts, and prompt-injection-shaped feedback.
+- `pnpm evo eval fixtures` and `pnpm evo eval fixture <fixtureId>` CLI commands.
+- Insight Worker regression test proving prompt-injection-shaped feedback remains data in the mock RFC path.
+- Bilingual Safety Fixtures documentation.
+
+### Changed
+
+- README now links the safety fixture workflow in English and Chinese.
+- Workspace package versions are bumped to `0.2.2`.
+
+### Notes
+
+Blocked fixtures pass when EvoFork blocks them as expected. These fixtures are a release-safety baseline, not a replacement for project-specific tests.
+
 ## v0.2.1 - Policy-Gated Rollout CLI
 
 Local rollout commands now use the governance policy engine before changing
