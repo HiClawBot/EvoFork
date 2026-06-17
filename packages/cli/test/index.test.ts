@@ -1,3 +1,6 @@
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { runCli } from "../src/index.js";
@@ -111,6 +114,99 @@ describe("@evofork/cli", () => {
 
     expect(prepared.branchName).toBe("pricing.hero.new-user-clarity.v1");
     expect(prepared.body).toContain("## Manifest Boundary");
+  });
+
+  it("seeds deterministic demo signals", async () => {
+    const io = createTestIo();
+    const outputPath = join(await mkdtemp(join(tmpdir(), "evofork-seed-")), "seed.json");
+
+    await expect(
+      runCli(
+        [
+          "demo",
+          "seed",
+          "--surface",
+          "pricing.hero",
+          "--count",
+          "3",
+          "--output",
+          outputPath,
+          "--manifest",
+          manifestPath
+        ],
+        io
+      )
+    ).resolves.toBe(0);
+
+    const seed = JSON.parse(await readFile(outputPath, "utf8")) as {
+      surfaceId: string;
+      signals: Array<{ id: string; piiRemoved: boolean; llmEligible: boolean }>;
+    };
+
+    expect(io.output()).toContain("Seeded 3 demo signals");
+    expect(seed.surfaceId).toBe("pricing.hero");
+    expect(seed.signals).toHaveLength(3);
+    expect(seed.signals[0]).toMatchObject({
+      id: "demo_signal_001",
+      piiRemoved: true,
+      llmEligible: true
+    });
+  });
+
+  it("tests route matching from the CLI", async () => {
+    const io = createTestIo();
+
+    await expect(
+      runCli(
+        [
+          "route",
+          "test",
+          "pricing.hero",
+          "--user",
+          "user_123",
+          "--segment",
+          "lifecycle_stage=new_user",
+          "--manifest",
+          manifestPath
+        ],
+        io
+      )
+    ).resolves.toBe(0);
+
+    expect(io.output()).toContain("Matched branch: pricing.hero.new-user-clarity.v1");
+    expect(io.output()).toContain("Reason: matched_segment_and_rollout");
+    expect(io.output()).toContain("Sticky: true");
+  });
+
+  it("prints route test JSON and supports opt-out fallback", async () => {
+    const io = createTestIo();
+
+    await expect(
+      runCli(
+        [
+          "route",
+          "test",
+          "pricing.hero",
+          "--user",
+          "user_123",
+          "--segment",
+          "lifecycle_stage=new_user",
+          "--opt-out",
+          "--json",
+          "--manifest",
+          manifestPath
+        ],
+        io
+      )
+    ).resolves.toBe(0);
+
+    const result = JSON.parse(io.output()) as { variant: string; reason: string; sticky: boolean };
+
+    expect(result).toMatchObject({
+      variant: "default",
+      reason: "personalization_opt_out",
+      sticky: false
+    });
   });
 
   it("passes eval patch-boundary for authorized changed files", async () => {

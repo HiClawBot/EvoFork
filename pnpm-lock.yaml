@@ -110,6 +110,9 @@ importers:
       '@evofork/patch-agent':
         specifier: workspace:*
         version: link:../../services/patch-agent
+      '@evofork/router':
+        specifier: workspace:*
+        version: link:../../services/router
 
   packages/manifest-parser:
     dependencies:
