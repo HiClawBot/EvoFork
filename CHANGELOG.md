@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.2.1 - Policy-Gated Rollout CLI
+
+Local rollout commands now use the governance policy engine before changing
+branch state.
+
+### Added
+
+- `pnpm evo branch rollout` now checks manifest rollout policy before mutating local demo state.
+- Local `policy_allowed` and `policy_blocked` audit events for branch rollout attempts.
+- Tests for approved rollout and blocked rollout paths.
+
+### Changed
+
+- README, Quickstart, and Policy Engine docs now document policy-gated rollout behavior in English and Chinese.
+- Workspace package versions are bumped to `0.2.1`.
+
+### Notes
+
+This keeps rollout governance local and auditable. It does not add autonomous deployment or bypass human approval requirements.
+
 ## v0.2.0 - Governance Policy Engine
 
 The first v0.2 governance component is now available.

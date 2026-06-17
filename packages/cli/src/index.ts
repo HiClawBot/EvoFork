@@ -8,6 +8,7 @@ import {
   defaultLocalDemoStatePath,
   readLocalDemoState,
   readOrCreateLocalDemoState,
+  recordLocalBranchAuditLog,
   revertLocalBranch,
   rolloutLocalBranch,
   sunsetLocalBranch,
@@ -34,7 +35,7 @@ import {
 } from "@evofork/manifest-parser";
 import { generateInsightRfc } from "@evofork/insight-worker";
 import { preparePullRequest } from "@evofork/patch-agent";
-import { evaluatePolicy } from "@evofork/policy-engine";
+import { evaluatePolicy, type PolicyDecision } from "@evofork/policy-engine";
 import { resolveVariant, type RouterBranch } from "@evofork/router";
 
 export const moduleId = "@evofork/cli";
@@ -135,7 +136,7 @@ export async function runCli(
     }
 
     if (namespace === "branch" && command === "rollout") {
-      return await branchRolloutCommand(commandArgs, io);
+      return await branchRolloutCommand(parsedArgs.manifestPath, commandArgs, io);
     }
 
     if (namespace === "branch" && command === "revert") {
@@ -253,7 +254,7 @@ function printHelp(io: CliIO): void {
   io.stdout.log("  evo branch list [--state <path>] [--surface <surfaceId>] [--status <status>] [--json]");
   io.stdout.log("  evo branch create --surface <surfaceId> [--branch <name>] [--segment <key=value>] [--state <path>] [--json]");
   io.stdout.log("  evo branch approve <branchId> [--state <path>] [--actor <name>] [--json]");
-  io.stdout.log("  evo branch rollout <branchId> --percentage <0-100> [--state <path>] [--actor <name>] [--json]");
+  io.stdout.log("  evo branch rollout <branchId> --percentage <0-100> [--state <path>] [--actor <name>] [--approved] [--json]");
   io.stdout.log("  evo branch revert <branchId> --reason <reason> [--state <path>] [--actor <name>] [--json]");
   io.stdout.log("  evo branch sunset <branchId> [--state <path>] [--actor <name>] [--json]");
   io.stdout.log("  evo db status [--migrations-dir <path>] [--json]");
@@ -666,7 +667,17 @@ async function branchApproveCommand(args: string[], io: CliIO): Promise<number> 
   );
 }
 
-async function branchRolloutCommand(args: string[], io: CliIO): Promise<number> {
+async function branchRolloutCommand(
+  manifestPath: string,
+  args: string[],
+  io: CliIO
+): Promise<number> {
+  const branchId = readPositionalArgs(args)[0];
+
+  if (!branchId) {
+    throw new Error("Missing required branchId");
+  }
+
   const percentageOption = readOption(args, "percentage") ?? readOption(args, "rollout");
 
   if (!percentageOption) {
@@ -674,10 +685,56 @@ async function branchRolloutCommand(args: string[], io: CliIO): Promise<number> 
   }
 
   const percentage = parseRolloutPercentage(percentageOption);
+  const state = await readLocalDemoState(readBranchStatePath(args));
+  const branch = state.branches.find((candidate) => candidate.id === branchId);
 
-  return await mutateLocalBranchCommand(args, io, (state, branchId, actor) =>
-    rolloutLocalBranch(state, branchId, percentage, actor)
+  if (!branch) {
+    throw new Error(`Branch not found: ${branchId}`);
+  }
+
+  const actor = readOption(args, "actor") ?? "local-maintainer";
+  const manifest = await loadManifest(manifestPath);
+  const policyDecision = evaluatePolicy({
+    manifest,
+    surfaceId: branch.surfaceId,
+    action: "rollout",
+    rolloutPercentage: percentage,
+    actor,
+    humanApproved: hasFlag(args, "approved") || hasFlag(args, "human-approved")
+  });
+  const policyAuditLog = recordLocalBranchAuditLog(
+    state,
+    branchId,
+    actor,
+    policyDecision.audit.event,
+    {
+      ...policyDecision.audit.payload,
+      reasons: policyDecision.reasons,
+      requiredApprovals: policyDecision.requiredApprovals
+    }
   );
+
+  if (!policyDecision.allowed) {
+    await writeLocalDemoState(state);
+    return printBranchPolicyBlockedResult(
+      args,
+      io,
+      state.path,
+      branch,
+      policyDecision,
+      policyAuditLog
+    );
+  }
+
+  const { branch: updatedBranch, auditLog } = rolloutLocalBranch(
+    state,
+    branchId,
+    percentage,
+    actor
+  );
+
+  await writeLocalDemoState(state);
+  return printBranchMutationResult(args, io, state.path, updatedBranch, auditLog, policyAuditLog);
 }
 
 async function branchRevertCommand(args: string[], io: CliIO): Promise<number> {
@@ -726,7 +783,8 @@ function printBranchMutationResult(
   io: CliIO,
   statePath: string,
   branch: BranchRecord,
-  auditLog: AuditLogRecord
+  auditLog: AuditLogRecord,
+  policyAuditLog?: AuditLogRecord
 ): number {
   if (hasFlag(args, "json")) {
     io.stdout.log(
@@ -734,7 +792,8 @@ function printBranchMutationResult(
         {
           statePath,
           branch,
-          auditLog
+          auditLog,
+          policyAuditLog
         },
         null,
         2
@@ -746,9 +805,48 @@ function printBranchMutationResult(
   io.stdout.log(`Branch ${branch.id} updated`);
   io.stdout.log(`Status: ${branch.status}`);
   io.stdout.log(`Rollout: ${branch.rolloutPercentage}%`);
+  if (policyAuditLog) {
+    io.stdout.log(`Policy: ${policyAuditLog.event}`);
+  }
   io.stdout.log(`Audit: ${auditLog.event}`);
   io.stdout.log(`State: ${statePath}`);
   return 0;
+}
+
+function printBranchPolicyBlockedResult(
+  args: string[],
+  io: CliIO,
+  statePath: string,
+  branch: BranchRecord,
+  policyDecision: PolicyDecision,
+  auditLog: AuditLogRecord
+): number {
+  if (hasFlag(args, "json")) {
+    io.stdout.log(
+      JSON.stringify(
+        {
+          statePath,
+          branch,
+          policyDecision,
+          auditLog
+        },
+        null,
+        2
+      )
+    );
+    return 1;
+  }
+
+  io.stderr.error(`Policy blocked rollout for ${branch.id}`);
+  for (const reason of policyDecision.reasons) {
+    io.stderr.error(`- ${reason}`);
+  }
+  if (policyDecision.requiredApprovals.length > 0) {
+    io.stderr.error(`Required approvals: ${policyDecision.requiredApprovals.join(", ")}`);
+  }
+  io.stderr.error(`Audit: ${auditLog.event}`);
+  io.stderr.error(`State: ${statePath}`);
+  return 1;
 }
 
 function createRouteTestBranch(input: {

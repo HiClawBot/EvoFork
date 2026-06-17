@@ -147,8 +147,12 @@ For draft branch fixtures, use the same local state file to approve and roll out
 
 ```bash
 pnpm evo branch approve br_local_001 --state .evofork/demo-seed.json
-pnpm evo branch rollout br_local_001 --percentage 25 --state .evofork/demo-seed.json
+pnpm evo branch rollout br_local_001 --percentage 25 --approved --state .evofork/demo-seed.json
 ```
+
+Rollout commands run policy checks before changing local state. If the manifest
+requires approval and `--approved` is missing, the command writes a
+`policy_blocked` audit log and leaves the branch rollout unchanged.
 
 When the API server is unavailable, the Admin Console also uses this local seed
 state for demo branch creation and rollback.
@@ -325,8 +329,11 @@ pnpm evo route test pricing.hero \
 
 ```bash
 pnpm evo branch approve br_local_001 --state .evofork/demo-seed.json
-pnpm evo branch rollout br_local_001 --percentage 25 --state .evofork/demo-seed.json
+pnpm evo branch rollout br_local_001 --percentage 25 --approved --state .evofork/demo-seed.json
 ```
+
+rollout 命令会在修改本地 state 前执行 policy 校验。如果 manifest 要求审批而命令缺少
+`--approved`，命令会写入 `policy_blocked` audit log，并保持 branch rollout 不变。
 
 当 API server 不可用时，Admin Console 也会使用这个本地 seed state 来创建 demo branch 和回滚 branch。
 
