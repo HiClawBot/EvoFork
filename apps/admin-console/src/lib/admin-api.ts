@@ -1,3 +1,5 @@
+import { readDemoSeed } from "./demo-state";
+
 export type AdminSignal = {
   id: string;
   appId: string;
@@ -26,6 +28,7 @@ export type AdminAuditLog = {
 
 export type AdminSnapshot = {
   apiAvailable: boolean;
+  seedLoaded: boolean;
   signals: AdminSignal[];
   branches: AdminBranch[];
   auditLogs: AdminAuditLog[];
@@ -57,11 +60,15 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
       auditLogs: []
     })
   ]);
+  const seed = await readDemoSeed();
+  const useSeedSignals = signals.body.signals.length === 0 && seed.signals.length > 0;
+  const useSeedBranches = branches.body.branches.length === 0 && seed.branches.length > 0;
 
   return {
     apiAvailable: signals.ok && branches.ok && auditLogs.ok,
-    signals: signals.body.signals,
-    branches: branches.body.branches,
+    seedLoaded: useSeedSignals || useSeedBranches,
+    signals: useSeedSignals ? seed.signals : signals.body.signals,
+    branches: useSeedBranches ? seed.branches : branches.body.branches,
     auditLogs: auditLogs.body.auditLogs
   };
 }

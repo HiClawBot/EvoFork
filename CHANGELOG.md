@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.1.2 - Local Demo Persistence
+
+Small local-demo persistence improvements for the v0.1 Developer Preview.
+
+### Added
+
+- `pnpm evo demo seed` now writes a branch fixture alongside demo signals.
+- Admin Console snapshot can load `.evofork/demo-seed.json` when the local API has no matching demo records.
+- `pnpm evo route test` can read branch fixtures from `.evofork/demo-seed.json` or an explicit `--branches <path>` file.
+
+### Changed
+
+- Admin Console shows when local seed data is being used.
+- Route test keeps the simulated branch fallback when no local seed file exists.
+
+### Notes
+
+The local seed file remains run state and is still ignored by git. This release does not add production persistence.
+
 ## v0.1.1 - Hardening
 
 Developer preview hardening for local setup, CLI demo flow, and documentation.

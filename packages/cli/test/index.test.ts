@@ -141,6 +141,7 @@ describe("@evofork/cli", () => {
     const seed = JSON.parse(await readFile(outputPath, "utf8")) as {
       surfaceId: string;
       signals: Array<{ id: string; piiRemoved: boolean; llmEligible: boolean }>;
+      branches: Array<{ id: string; branchName: string; status: string }>;
     };
 
     expect(io.output()).toContain("Seeded 3 demo signals");
@@ -150,6 +151,11 @@ describe("@evofork/cli", () => {
       id: "demo_signal_001",
       piiRemoved: true,
       llmEligible: true
+    });
+    expect(seed.branches[0]).toMatchObject({
+      id: "br_demo_seed",
+      branchName: "pricing.hero.new-user-clarity.v1",
+      status: "active"
     });
   });
 
@@ -207,6 +213,50 @@ describe("@evofork/cli", () => {
       reason: "personalization_opt_out",
       sticky: false
     });
+  });
+
+  it("tests route matching from a branch fixture", async () => {
+    const seedIo = createTestIo();
+    const routeIo = createTestIo();
+    const outputPath = join(await mkdtemp(join(tmpdir(), "evofork-route-seed-")), "seed.json");
+
+    await expect(
+      runCli(
+        [
+          "demo",
+          "seed",
+          "--output",
+          outputPath,
+          "--count",
+          "2",
+          "--manifest",
+          manifestPath
+        ],
+        seedIo
+      )
+    ).resolves.toBe(0);
+
+    await expect(
+      runCli(
+        [
+          "route",
+          "test",
+          "pricing.hero",
+          "--user",
+          "user_123",
+          "--segment",
+          "lifecycle_stage=new_user",
+          "--branches",
+          outputPath,
+          "--manifest",
+          manifestPath
+        ],
+        routeIo
+      )
+    ).resolves.toBe(0);
+
+    expect(routeIo.output()).toContain("Matched branch: pricing.hero.new-user-clarity.v1");
+    expect(routeIo.output()).toContain("Reason: matched_segment_and_rollout");
   });
 
   it("passes eval patch-boundary for authorized changed files", async () => {
