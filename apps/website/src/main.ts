@@ -1,4 +1,4 @@
-import { copy, loopSteps, scenarios, type Locale, type ScenarioPreview } from "./content.js";
+import { copy, loopSteps, type Locale, type ScenarioPreview } from "./content.js";
 
 const localeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-locale-target]"));
 const localizedNodes = Array.from(document.querySelectorAll<HTMLElement>("[data-i18n]"));
@@ -8,7 +8,8 @@ const scenarioNav = document.querySelector<HTMLElement>("[data-scenario-nav]");
 const scenarioDetail = document.querySelector<HTMLElement>("[data-scenario-detail]");
 
 let activeLocale: Locale = "en";
-let activeScenario = scenarios[0];
+let scenarios: ScenarioPreview[] = [];
+let activeScenario: ScenarioPreview | undefined;
 let activeLoopIndex = 0;
 
 const textFor = (key: string, locale: Locale): string => {
@@ -69,12 +70,22 @@ const renderLoop = (): void => {
   });
 };
 
-const renderScenario = (scenario: ScenarioPreview): void => {
+const renderScenario = (scenario: ScenarioPreview | undefined): void => {
   if (!scenarioDetail) {
     return;
   }
 
   scenarioDetail.innerHTML = "";
+
+  if (!scenario) {
+    const empty = document.createElement("p");
+    empty.textContent =
+      activeLocale === "en"
+        ? "Scenario models are not available in this build."
+        : "此构建中没有可用的场景模型。";
+    scenarioDetail.append(empty);
+    return;
+  }
 
   const title = document.createElement("h3");
   title.textContent = scenario.surfaceId;
@@ -101,7 +112,19 @@ const renderScenario = (scenario: ScenarioPreview): void => {
   metricValue.textContent = scenario.metric;
   metric.append(metricLabel, metricValue);
 
-  scenarioDetail.append(title, branch, audience, problem, gate, metric);
+  const steps = document.createElement("ol");
+  steps.className = "scenario-steps";
+  for (const step of scenario.steps) {
+    const item = document.createElement("li");
+    const stepLabel = document.createElement("strong");
+    stepLabel.textContent = step.label[activeLocale];
+    const stepDetail = document.createElement("span");
+    stepDetail.textContent = step.detail[activeLocale];
+    item.append(stepLabel, stepDetail);
+    steps.append(item);
+  }
+
+  scenarioDetail.append(title, branch, audience, problem, gate, metric, steps);
 };
 
 const renderScenarioNav = (): void => {
@@ -115,7 +138,7 @@ const renderScenarioNav = (): void => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "scenario-button";
-    button.dataset.active = String(scenario.id === activeScenario.id);
+    button.dataset.active = String(scenario.id === activeScenario?.id);
     button.textContent = scenario.surfaceId;
     button.addEventListener("click", () => {
       activeScenario = scenario;
@@ -129,6 +152,15 @@ const renderScenarioNav = (): void => {
 const tickScene = (): void => {
   activeLoopIndex = (activeLoopIndex + 1) % loopSteps.length;
   renderLoop();
+};
+
+const loadScenarios = async (): Promise<ScenarioPreview[]> => {
+  const response = await fetch("./assets/scenarios.json");
+  if (!response.ok) {
+    throw new Error(`Failed to load scenario models: ${response.status}`);
+  }
+
+  return (await response.json()) as ScenarioPreview[];
 };
 
 for (const button of localeButtons) {
@@ -146,6 +178,13 @@ for (const button of localeButtons) {
 
 setLocalizedText(activeLocale);
 renderLoop();
+try {
+  scenarios = await loadScenarios();
+  activeScenario = scenarios[0];
+} catch {
+  scenarios = [];
+  activeScenario = undefined;
+}
 renderScenarioNav();
 renderScenario(activeScenario);
 window.setInterval(tickScene, 4200);

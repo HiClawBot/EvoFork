@@ -428,6 +428,35 @@ button {
   font-size: 1rem;
 }
 
+.scenario-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 28px 0 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: var(--line);
+  list-style: none;
+}
+
+.scenario-steps li {
+  display: grid;
+  gap: 8px;
+  min-height: 118px;
+  padding: 14px;
+  background: rgb(255 253 248 / 82%);
+}
+
+.scenario-steps strong {
+  font-size: 0.9rem;
+}
+
+.scenario-steps span {
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
 .safety-band {
   background: #e9e2d2;
 }
@@ -505,6 +534,10 @@ button {
   .safety-panel {
     grid-template-columns: 1fr;
   }
+
+  .scenario-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 620px) {
@@ -561,5 +594,9 @@ button {
   .button {
     flex: 1 1 150px;
     justify-content: center;
+  }
+
+  .scenario-steps {
+    grid-template-columns: 1fr;
   }
 }

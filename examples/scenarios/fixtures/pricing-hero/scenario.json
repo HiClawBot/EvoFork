@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "evofork.scenario/v1",
+  "id": "pricing-hero",
+  "displayOrder": 1,
+  "title": {
+    "en": "Pricing hero clarity",
+    "zh": "价格页首屏清晰度"
+  },
+  "surfaceId": "pricing.hero",
+  "surfaceType": "react-component",
+  "branch": "pricing.hero.new-user-clarity.v1",
+  "audience": {
+    "en": "New SaaS buyers",
+    "zh": "首次访问 SaaS 价格页的买家"
+  },
+  "problem": {
+    "en": "Visitors cannot understand the difference between Basic and Pro.",
+    "zh": "用户看不懂 Basic 和 Pro 的差异。"
+  },
+  "signalExamples": [
+    {
+      "en": "I do not understand the difference between Basic and Pro.",
+      "zh": "我看不懂基础版和专业版差在哪。"
+    },
+    {
+      "en": "I am a developer and only care about the API.",
+      "zh": "我是开发者，我只关心 API。"
+    }
+  ],
+  "allowedChanges": ["copy", "layout", "cta_text"],
+  "blockedChanges": ["payment_logic", "authentication", "database_schema", "pricing_amount"],
+  "evalGate": {
+    "en": "Allowed: copy, layout, CTA text. Blocked: pricing amount and payment logic.",
+    "zh": "允许：文案、布局、CTA。阻止：价格金额和支付逻辑。"
+  },
+  "primaryMetric": "pricing_to_signup_conversion",
+  "guardrailMetrics": ["page_error_rate", "support_ticket_rate", "p95_latency"],
+  "demoFlow": [
+    {
+      "id": "signal",
+      "label": {
+        "en": "Feedback cluster",
+        "zh": "反馈聚类"
+      },
+      "detail": {
+        "en": "Pricing confusion repeats across new-user feedback.",
+        "zh": "新用户反馈反复出现价格页理解阻塞。"
+      }
+    },
+    {
+      "id": "rfc",
+      "label": {
+        "en": "RFC hypothesis",
+        "zh": "RFC 假设"
+      },
+      "detail": {
+        "en": "Clear plan comparison should increase signup intent.",
+        "zh": "更清晰的套餐对比应提升注册意图。"
+      }
+    },
+    {
+      "id": "eval",
+      "label": {
+        "en": "Eval boundary",
+        "zh": "Eval 边界"
+      },
+      "detail": {
+        "en": "Only pricing hero copy and layout are allowed.",
+        "zh": "只允许修改价格页首屏文案和布局。"
+      }
+    },
+    {
+      "id": "route",
+      "label": {
+        "en": "Segment route",
+        "zh": "分群路由"
+      },
+      "detail": {
+        "en": "New users can receive the clarity branch with rollback available.",
+        "zh": "新用户可看到清晰度分支，并保留回滚能力。"
+      }
+    }
+  ]
+}

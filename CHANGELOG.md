@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.4.2 - Scenario Models
+
+Public scenario previews now come from versioned application scenario fixtures.
+
+### Added
+
+- `@evofork/scenarios` workspace package with typed scenario model validation,
+  bundled fixture loading, and website preview projection.
+- Versioned JSON fixtures for `pricing.hero`, `docs.quickstart`, and
+  `support.refund_policy_answer`.
+- Scenario model documentation and examples index updates.
+- Website build-time generation of `apps/website/dist/assets/scenarios.json`
+  from the scenario fixtures.
+- Tests for scenario loading, validation, branch naming, safety framing, and
+  public preview projection.
+
+### Changed
+
+- The public website now renders scenario previews from generated fixture data
+  instead of a hardcoded in-app array.
+- Root Turbo validation scripts now use explicit concurrency caps to keep the
+  27-workspace verification run stable.
+- README, docs index, release checklist, and workspace package versions are
+  updated for `0.4.2`.
+
+### Notes
+
+Scenario models are demo fixtures, not patch permissions. Manifest boundaries,
+Eval Gate, audit requirements, and blocked high-risk categories remain the
+governance source of truth.
+
 ## v0.4.1 - Public Website and GitHub Pages
 
 EvoFork now includes an independent bilingual public website package and a

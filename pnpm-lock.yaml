@@ -108,6 +108,8 @@ importers:
 
   apps/website: {}
 
+  examples/scenarios: {}
+
   packages/cli:
     dependencies:
       '@evofork/adapter-argo-rollouts':

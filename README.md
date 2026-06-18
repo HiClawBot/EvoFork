@@ -337,6 +337,9 @@ The independent bilingual website lives in `apps/website` and is published from
 `apps/website/dist` through the GitHub Pages workflow. See
 [Public Site and GitHub Pages](./docs/PUBLIC_SITE.md).
 
+Application scenario models live in `examples/scenarios` and are used by the
+public website build. See [Scenario Models](./docs/SCENARIOS.md).
+
 Optional PostgreSQL schema preview:
 
 ```bash
@@ -471,6 +474,7 @@ and are not invoked by default.
 - [Eval Gate](./docs/EVAL_GATE.md)
 - [Rollout Observer](./docs/ROLLOUT_OBSERVER.md)
 - [Public Site and GitHub Pages](./docs/PUBLIC_SITE.md)
+- [Scenario Models](./docs/SCENARIOS.md)
 - [Router](./docs/ROUTER.md)
 - [Release Checklist](./docs/RELEASE_CHECKLIST.md)
 - [Codex Tasks](./CODEX_TASKS.md)
@@ -788,6 +792,9 @@ pnpm --filter @evofork/website dev -- --host 127.0.0.1 --port 4173
 `apps/website/dist` 发布。详见
 [Public Site and GitHub Pages](./docs/PUBLIC_SITE.md)。
 
+应用场景模型位于 `examples/scenarios`，并由公开官网构建时使用。详见
+[Scenario Models](./docs/SCENARIOS.md)。
+
 可选 PostgreSQL schema 预览：
 
 ```bash
@@ -875,6 +882,7 @@ v0.4 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 G
 - [Eval Gate](./docs/EVAL_GATE.md)
 - [Rollout Observer](./docs/ROLLOUT_OBSERVER.md)
 - [Public Site and GitHub Pages](./docs/PUBLIC_SITE.md)
+- [Scenario Models](./docs/SCENARIOS.md)
 - [Router](./docs/ROUTER.md)
 - [发布清单](./docs/RELEASE_CHECKLIST.md)
 - [Codex 任务](./CODEX_TASKS.md)
