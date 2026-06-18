@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.3.1 - Admin Rollout Observer Visibility
+
+The Admin Console now shows Rollout Observer recommendations in the local
+governance view.
+
+### Added
+
+- Admin snapshot now includes a derived canary observation report for active or
+  canary branches.
+- Admin Console Rollout Observer panel with recommendation, status, sample
+  size, metric rows, reasons, and audit payload summary.
+- Governance panel now includes Rollout Observer status alongside data source,
+  Eval Gate, policy, and rollback state.
+- Tests for active-branch promote reports and early-canary hold reports.
+
+### Changed
+
+- README, Quickstart, Rollout Observer docs, and release checklist document the
+  Admin Console canary visibility.
+- Workspace package versions are bumped to `0.3.1`.
+
+### Notes
+
+This release is visibility-only. The Admin Console does not deploy, merge,
+promote, roll back, mutate branch state from Rollout Observer, or change
+production traffic.
+
 ## v0.3.0 - Rollout Observer
 
 The first v0.3 progressive-delivery component is now available.

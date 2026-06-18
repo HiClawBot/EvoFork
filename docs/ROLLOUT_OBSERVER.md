@@ -40,6 +40,20 @@ The regression command exits with `1` because it recommends `rollback`. A
 `hold` recommendation exits with `0`, so CI can distinguish unsafe rollback
 conditions from incomplete observation windows.
 
+## Admin Console
+
+The Admin Console surfaces the same local canary report in its governance view.
+For active or canary demo branches, the console shows:
+
+- recommendation and status
+- sample size
+- metric rows with baseline, canary, and regression percentages
+- reasons
+- generated audit payload summary
+
+This view is read-only. It does not create a deployment, mutate branch state, or
+change production traffic.
+
 ## Input Format
 
 Custom inputs can be read from JSON:
@@ -124,6 +138,19 @@ pnpm evo observe canary --fixture regression --json
 
 回归 fixture 会返回退出码 `1`，因为它建议 `rollback`。`hold` 建议仍返回
 `0`，这样 CI 可以区分不安全回滚条件和观察窗口尚不充分的情况。
+
+## Admin Console
+
+Admin Console 会在 governance 视图中展示同一份本地 canary report。对于
+active 或 canary demo branch，控制台会展示：
+
+- recommendation 和 status
+- sample size
+- 包含 baseline、canary 和 regression percentage 的 metric rows
+- reasons
+- 生成的 audit payload 摘要
+
+这个视图是只读的。它不会创建部署、修改 branch state 或改变生产流量。
 
 ## 输入格式
 

@@ -8,6 +8,7 @@ export function AdminConsole({ initialSnapshot }: { initialSnapshot: AdminSnapsh
   const [result, setResult] = useState<DemoActionResult | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const governance = summarizeGovernance(snapshot, result);
+  const canaryReport = snapshot.canaryReport;
 
   async function runAction(action: string, path: string, body?: unknown) {
     setBusyAction(action);
@@ -64,6 +65,7 @@ export function AdminConsole({ initialSnapshot }: { initialSnapshot: AdminSnapsh
           />
           <Metric label="Policy Blocks" value={governance.policyBlocked} />
           <Metric label="Eval Gate" value={governance.evalStatus} />
+          <Metric label="Canary" value={governance.canaryRecommendation} />
         </div>
       </section>
 
@@ -135,7 +137,72 @@ export function AdminConsole({ initialSnapshot }: { initialSnapshot: AdminSnapsh
               detail={`${governance.rollbackCount} reverted`}
               tone={governance.rollbackCount > 0 ? "warn" : "neutral"}
             />
+            <StatusItem
+              label="Rollout Observer"
+              value={governance.canaryRecommendation}
+              detail={governance.canaryDetail}
+              tone={governance.canaryTone}
+            />
           </div>
+        </Panel>
+
+        <Panel title="Rollout Observer">
+          {canaryReport ? (
+            <div className="canary-block">
+              <div className="canary-summary">
+                <div>
+                  <small>Recommendation</small>
+                  <strong>{canaryReport.recommendation}</strong>
+                </div>
+                <div>
+                  <small>Status</small>
+                  <strong>{canaryReport.status}</strong>
+                </div>
+                <div>
+                  <small>Sample</small>
+                  <strong>
+                    {canaryReport.sampleSize}/{canaryReport.minSampleSize}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="canary-detail">
+                <span>{canaryReport.branchName ?? canaryReport.branchId}</span>
+                <span>{canaryReport.rolloutPercentage}% rollout</span>
+                <span>{canaryReport.surfaceId}</span>
+                <span>{formatSourceLabel(readPayloadString(canaryReport.audit.payload, "source"))}</span>
+              </div>
+
+              <div className="canary-metrics" aria-label="Canary metrics">
+                {canaryReport.metrics.map((metric) => (
+                  <div className="canary-metric" key={metric.name}>
+                    <div>
+                      <strong>{metric.name}</strong>
+                      <span>
+                        {formatMetricValue(metric.baseline)} to {formatMetricValue(metric.canary)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={`pill ${metric.status}`}>{metric.status}</span>
+                      <small>{metric.regressionPercent}% regression</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="canary-reasons">
+                {canaryReport.reasons.map((reason) => (
+                  <span key={reason}>{reason}</span>
+                ))}
+              </div>
+
+              <div className="audit-meta canary-audit">
+                Audit: {canaryReport.audit.event} · {formatAuditPayload(canaryReport.audit.payload)}
+              </div>
+            </div>
+          ) : (
+            <p className="empty">No active or canary branch is ready for observation.</p>
+          )}
         </Panel>
 
         <Panel title="Feedback">
@@ -281,6 +348,7 @@ function summarizeGovernance(snapshot: AdminSnapshot, result: DemoActionResult |
   const evalSummary =
     readEvalSummary(result?.evalReport) ??
     snapshot.branches.map((branch) => readEvalSummary(branch.evalReport)).find(Boolean);
+  const canaryReport = snapshot.canaryReport;
   const policyAllowed = snapshot.auditLogs.filter((log) => log.event === "policy_allowed").length;
   const policyBlocked = snapshot.auditLogs.filter((log) => log.event === "policy_blocked").length;
   const rollbackCount = snapshot.branches.filter((branch) => branch.status === "reverted").length;
@@ -302,8 +370,21 @@ function summarizeGovernance(snapshot: AdminSnapshot, result: DemoActionResult |
     policyAllowed,
     policyBlocked,
     rollbackCount,
-    rollbackStatus: rollbackReady ? "available" : rollbackCount > 0 ? "completed" : "idle"
+    rollbackStatus: rollbackReady ? "available" : rollbackCount > 0 ? "completed" : "idle",
+    canaryRecommendation: canaryReport?.recommendation ?? "pending",
+    canaryDetail: canaryReport
+      ? `${canaryReport.status} · ${canaryReport.metrics.length} metrics · ${canaryReport.sampleSize}/${canaryReport.minSampleSize} samples`
+      : "no active observation",
+    canaryTone: readCanaryTone(canaryReport?.recommendation)
   };
+}
+
+function readCanaryTone(recommendation: string | undefined): StatusTone {
+  if (!recommendation) {
+    return "neutral";
+  }
+
+  return recommendation === "rollback" || recommendation === "hold" ? "warn" : "good";
 }
 
 function readEvalSummary(value: unknown): EvalSummary | undefined {
@@ -339,12 +420,23 @@ function formatAuditPayload(payload: Record<string, unknown> | undefined): strin
 
   const parts = [
     readPayloadString(payload, "status"),
+    readPayloadString(payload, "recommendation"),
+    readPayloadString(payload, "source"),
     readPayloadNumber(payload, "rolloutPercentage", "%"),
+    readPayloadNumber(payload, "sampleSize", " samples"),
     readPayloadString(payload, "action"),
     readPayloadString(payload, "reason")
   ].filter(Boolean);
 
   return parts.join(" · ");
+}
+
+function formatMetricValue(value: number): string {
+  return Number.isInteger(value) ? String(value) : String(Math.round(value * 1000) / 1000);
+}
+
+function formatSourceLabel(value: string): string {
+  return value.replaceAll("_", " ");
 }
 
 function readPayloadString(payload: Record<string, unknown>, key: string): string {

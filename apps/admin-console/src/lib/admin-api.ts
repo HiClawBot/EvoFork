@@ -1,3 +1,9 @@
+import {
+  analyzeCanary,
+  getCanaryFixture,
+  type CanaryFixtureId,
+  type CanaryObservationReport
+} from "@evofork/rollout-observer";
 import { readDemoSeed } from "./demo-state";
 
 export type AdminSignal = {
@@ -17,6 +23,7 @@ export type AdminBranch = {
   status: string;
   rolloutPercentage: number;
   evalReport?: unknown;
+  updatedAt?: string;
 };
 
 export type AdminAuditLog = {
@@ -34,6 +41,7 @@ export type AdminSnapshot = {
   signals: AdminSignal[];
   branches: AdminBranch[];
   auditLogs: AdminAuditLog[];
+  canaryReport?: CanaryObservationReport;
 };
 
 export type DemoActionResult = {
@@ -67,12 +75,54 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
   const useSeedBranches = branches.body.branches.length === 0 && seed.branches.length > 0;
   const useSeedAuditLogs = auditLogs.body.auditLogs.length === 0 && seed.auditLogs.length > 0;
 
+  const selectedSignals = useSeedSignals ? seed.signals : signals.body.signals;
+  const selectedBranches = useSeedBranches ? seed.branches : branches.body.branches;
+  const selectedAuditLogs = useSeedAuditLogs ? seed.auditLogs : auditLogs.body.auditLogs;
+
   return {
     apiAvailable: signals.ok && branches.ok && auditLogs.ok,
     seedLoaded: useSeedSignals || useSeedBranches || useSeedAuditLogs,
-    signals: useSeedSignals ? seed.signals : signals.body.signals,
-    branches: useSeedBranches ? seed.branches : branches.body.branches,
-    auditLogs: useSeedAuditLogs ? seed.auditLogs : auditLogs.body.auditLogs
+    signals: selectedSignals,
+    branches: selectedBranches,
+    auditLogs: selectedAuditLogs,
+    canaryReport: buildAdminCanaryReport(selectedBranches)
+  };
+}
+
+export function buildAdminCanaryReport(
+  branches: AdminBranch[]
+): CanaryObservationReport | undefined {
+  const branch = branches.find(
+    (candidate) => candidate.status === "canary" || candidate.status === "active"
+  );
+
+  if (!branch) {
+    return undefined;
+  }
+
+  const fixtureId: CanaryFixtureId =
+    branch.status === "canary" && branch.rolloutPercentage < 10 ? "insufficient" : "healthy";
+  const fixture = getCanaryFixture(fixtureId);
+
+  const report = analyzeCanary({
+    ...fixture,
+    appId: branch.appId,
+    surfaceId: branch.surfaceId,
+    branchId: branch.id,
+    branchName: branch.branchName,
+    rolloutPercentage: branch.rolloutPercentage,
+    ...(branch.updatedAt ? { observedAt: branch.updatedAt } : {})
+  });
+
+  return {
+    ...report,
+    audit: {
+      ...report.audit,
+      payload: {
+        ...report.audit.payload,
+        source: "local_demo_fixture"
+      }
+    }
   };
 }
 

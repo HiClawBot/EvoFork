@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { appId, type AdminSnapshot } from "../src/index.js";
+import { buildAdminCanaryReport } from "../src/lib/admin-api.js";
 import { createDemoBranch, revertDemoBranch } from "../src/lib/demo-flow.js";
 import { readDemoSeed } from "../src/lib/demo-state.js";
 
@@ -76,6 +77,7 @@ describe(appId, () => {
               lifecycle_stage: "new_user"
             },
             rolloutPercentage: 100,
+            updatedAt: "2026-06-17T00:00:00.000Z",
             evalReport: {
               status: "passed",
               recommendation: "safe_for_canary_after_approval"
@@ -110,6 +112,7 @@ describe(appId, () => {
       status: "passed",
       recommendation: "safe_for_canary_after_approval"
     });
+    expect(seed.branches[0].updatedAt).toBe("2026-06-17T00:00:00.000Z");
     expect(seed.auditLogs).toHaveLength(1);
     expect(seed.auditLogs[0]).toMatchObject({
       event: "branch_rollout_changed",
@@ -118,6 +121,61 @@ describe(appId, () => {
         rolloutPercentage: 100
       }
     });
+  });
+
+  it("builds a canary observation report for active branches", () => {
+    const report = buildAdminCanaryReport([
+      {
+        id: "br_demo_seed",
+        appId: "demo-saas",
+        surfaceId: "pricing.hero",
+        branchName: "pricing.hero.new-user-clarity.v1",
+        status: "active",
+        rolloutPercentage: 100,
+        updatedAt: "2026-06-17T00:00:00.000Z"
+      }
+    ]);
+
+    expect(report).toMatchObject({
+      status: "passed",
+      recommendation: "promote",
+      branchId: "br_demo_seed",
+      rolloutPercentage: 100,
+      observedAt: "2026-06-17T00:00:00.000Z",
+      audit: {
+        event: "canary_observation_completed",
+        resourceId: "br_demo_seed",
+        payload: {
+          source: "local_demo_fixture"
+        }
+      }
+    });
+    expect(report?.metrics.map((metric) => metric.status)).toEqual([
+      "passed",
+      "passed",
+      "passed"
+    ]);
+  });
+
+  it("holds canary observation when early rollout sample size is insufficient", () => {
+    const report = buildAdminCanaryReport([
+      {
+        id: "br_canary",
+        appId: "demo-saas",
+        surfaceId: "pricing.hero",
+        branchName: "pricing.hero.canary.v1",
+        status: "canary",
+        rolloutPercentage: 5
+      }
+    ]);
+
+    expect(report).toMatchObject({
+      status: "warning",
+      recommendation: "hold",
+      branchId: "br_canary",
+      rolloutPercentage: 5
+    });
+    expect(report?.reasons.join("\n")).toContain("below minimum");
   });
 
   it("creates and reverts local demo branches when the API is unavailable", async () => {
