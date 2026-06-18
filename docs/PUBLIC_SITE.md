@@ -7,7 +7,9 @@ pnpm --filter @evofork/website build
 pnpm --filter @evofork/website dev -- --host 127.0.0.1 --port 4173
 ```
 
-The production artifact is `apps/website/dist`.
+The production artifact is `apps/website/dist`. It includes the generated
+Scenario Player data at `assets/scenarios.json` and a version label stamped from
+the root `package.json`.
 
 ## GitHub Pages
 
@@ -55,7 +57,8 @@ pnpm --filter @evofork/website build
 pnpm --filter @evofork/website dev -- --host 127.0.0.1 --port 4173
 ```
 
-生产构建产物位于 `apps/website/dist`。
+生产构建产物位于 `apps/website/dist`。它包含生成的 Scenario Player 数据
+`assets/scenarios.json`，并会从根目录 `package.json` 写入版本号。
 
 ## GitHub Pages
 

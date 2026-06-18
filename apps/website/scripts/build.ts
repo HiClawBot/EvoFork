@@ -10,6 +10,9 @@ const distRoot = join(websiteRoot, "dist");
 const distAssets = join(distRoot, "assets");
 const scenariosModuleUrl = new URL("../../../examples/scenarios/src/index.ts", import.meta.url);
 const scenariosFixtures = join(repoRoot, "examples", "scenarios", "fixtures");
+const rootPackageJson = JSON.parse(
+  await readFile(join(repoRoot, "package.json"), "utf8")
+) as { version: string };
 
 await rm(distRoot, { recursive: true, force: true });
 await mkdir(distAssets, { recursive: true });
@@ -27,10 +30,12 @@ execFileSync("tsc", ["-p", "tsconfig.app.json"], {
 });
 
 const html = await readFile(join(srcRoot, "index.html"), "utf8");
-const stampedHtml = html.replace(
-  "<!-- build:version -->",
-  `<meta name="evofork-version" content="0.4.1">`
-);
+const stampedHtml = html
+  .replace(
+    "<!-- build:version -->",
+    `<meta name="evofork-version" content="${rootPackageJson.version}">`
+  )
+  .replace("v0.0.0-dev", `v${rootPackageJson.version}`);
 
 await writeFile(join(distRoot, "index.html"), stampedHtml);
 await copyFile(join(srcRoot, "styles.css"), join(distAssets, "styles.css"));
