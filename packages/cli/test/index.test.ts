@@ -23,6 +23,7 @@ describe("@evofork/cli", () => {
     expect(io.output()).toContain("evo eval patch-boundary");
     expect(io.output()).toContain("evo observe canary");
     expect(io.output()).toContain("evo argo plan");
+    expect(io.output()).toContain("evo workspace apps");
   });
 
   it("validates a manifest file", async () => {
@@ -237,6 +238,7 @@ describe("@evofork/cli", () => {
     ).resolves.toBe(0);
 
     const seed = JSON.parse(await readFile(outputPath, "utf8")) as {
+      apps: Array<{ id: string; defaultBranch: string; manifestPath?: string }>;
       surfaceId: string;
       signals: Array<{ id: string; piiRemoved: boolean; llmEligible: boolean }>;
       metricEvents: Array<{ event: string; surfaceId: string; branchId: string | null }>;
@@ -246,6 +248,13 @@ describe("@evofork/cli", () => {
 
     expect(io.output()).toContain("Seeded 3 demo signals");
     expect(io.output()).toContain("Seeded 40 demo metric events");
+    expect(seed.apps).toMatchObject([
+      {
+        id: "demo-saas",
+        defaultBranch: "main",
+        manifestPath
+      }
+    ]);
     expect(seed.surfaceId).toBe("pricing.hero");
     expect(seed.signals).toHaveLength(3);
     expect(seed.metricEvents).toHaveLength(40);
@@ -660,6 +669,81 @@ describe("@evofork/cli", () => {
 
     expect(listIo.output()).toContain("br_demo_seed\tpricing.hero\tactive\t100%");
     expect(listIo.output()).toContain("pricing.hero.new-user-clarity.v1");
+  });
+
+  it("lists local workspace apps and filters branches by app", async () => {
+    const appsIo = createTestIo();
+    const branchIo = createTestIo();
+    const outputPath = join(await mkdtemp(join(tmpdir(), "evofork-workspace-apps-")), "state.json");
+
+    await writeFile(
+      outputPath,
+      `${JSON.stringify(
+        {
+          apps: [
+            {
+              id: "demo-saas",
+              defaultBranch: "main",
+              manifestPath
+            },
+            {
+              id: "docs-site",
+              defaultBranch: "main",
+              manifestPath: "examples/docs/evo.manifest.yaml"
+            }
+          ],
+          branches: [
+            {
+              id: "br_demo",
+              appId: "demo-saas",
+              surfaceId: "pricing.hero",
+              branchName: "pricing.hero.new-user-clarity.v1",
+              status: "active",
+              targetSegments: {},
+              rolloutPercentage: 100,
+              priority: 10
+            },
+            {
+              id: "br_docs",
+              appId: "docs-site",
+              surfaceId: "docs.quickstart",
+              branchName: "docs.quickstart.shorter.v1",
+              status: "canary",
+              targetSegments: {},
+              rolloutPercentage: 10,
+              priority: 10
+            }
+          ],
+          auditLogs: []
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await expect(
+      runCli(["workspace", "apps", "--state", outputPath, "--json"], appsIo)
+    ).resolves.toBe(0);
+
+    const apps = JSON.parse(appsIo.output()) as {
+      apps: Array<{ id: string; defaultBranch: string }>;
+    };
+    expect(apps.apps.map((app) => app.id)).toEqual(["demo-saas", "docs-site"]);
+
+    await expect(
+      runCli(["branch", "list", "--state", outputPath, "--app", "docs-site", "--json"], branchIo)
+    ).resolves.toBe(0);
+
+    const branches = JSON.parse(branchIo.output()) as {
+      branches: Array<{ appId: string; id: string }>;
+    };
+    expect(branches.branches).toEqual([
+      expect.objectContaining({
+        appId: "docs-site",
+        id: "br_docs"
+      })
+    ]);
   });
 
   it("creates draft local branch fixtures", async () => {
@@ -1282,10 +1366,14 @@ describe("@evofork/cli", () => {
     const result = JSON.parse(io.output()) as {
       migrations: Array<{ id: string; name: string; path: string }>;
     };
-    expect(result.migrations).toHaveLength(1);
+    expect(result.migrations).toHaveLength(2);
     expect(result.migrations[0]).toMatchObject({
       id: "0001_initial",
       name: "0001_initial.sql"
+    });
+    expect(result.migrations[1]).toMatchObject({
+      id: "0002_workspace_metadata",
+      name: "0002_workspace_metadata.sql"
     });
   });
 
@@ -1300,7 +1388,10 @@ describe("@evofork/cli", () => {
       applied: Array<{ id: string }>;
     };
     expect(result.dryRun).toBe(true);
-    expect(result.migrations.map((migration) => migration.id)).toEqual(["0001_initial"]);
+    expect(result.migrations.map((migration) => migration.id)).toEqual([
+      "0001_initial",
+      "0002_workspace_metadata"
+    ]);
     expect(result.applied).toEqual([]);
   });
 

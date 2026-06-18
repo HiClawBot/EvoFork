@@ -178,6 +178,12 @@ export const evalReports = pgTable(
   })
 );
 
+export const evoforkMeta = pgTable("evofork_meta", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").$type<Record<string, unknown>>().default({}).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+});
+
 export const schema = {
   apps,
   feedbackSignals,
@@ -185,7 +191,8 @@ export const schema = {
   evoBranches,
   variantExposures,
   auditLogs,
-  evalReports
+  evalReports,
+  evoforkMeta
 };
 
 export const evoforkTableNames = [
@@ -195,7 +202,8 @@ export const evoforkTableNames = [
   "evo_branches",
   "variant_exposures",
   "audit_logs",
-  "eval_reports"
+  "eval_reports",
+  "evofork_meta"
 ] as const;
 
 export type EvoforkTableName = (typeof evoforkTableNames)[number];
@@ -213,5 +221,7 @@ export type AuditLogDbRecord = InferSelectModel<typeof auditLogs>;
 export type NewAuditLogDbRecord = InferInsertModel<typeof auditLogs>;
 export type EvalReportRecord = InferSelectModel<typeof evalReports>;
 export type NewEvalReportRecord = InferInsertModel<typeof evalReports>;
+export type EvoforkMetaRecord = InferSelectModel<typeof evoforkMeta>;
+export type NewEvoforkMetaRecord = InferInsertModel<typeof evoforkMeta>;
 
 export * from "./migrations.js";

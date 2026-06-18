@@ -1,4 +1,4 @@
-# EvoFork v0.3 Release Checklist
+# EvoFork v0.4 Release Checklist
 
 Run from the repository root before publishing a GitHub release.
 
@@ -14,6 +14,8 @@ pnpm evo eval report --surface pricing.hero --changed-file apps/demo-nextjs/src/
 pnpm evo eval patch-boundary --surface pricing.hero --changed-file apps/demo-nextjs/src/app/billing/Checkout.tsx
 pnpm evo observe canary --fixture healthy --json
 pnpm evo demo seed
+pnpm evo workspace apps --json
+pnpm evo branch list --app demo-saas --json
 pnpm evo observe input --surface pricing.hero --branch-id br_demo_seed --min-sample 10 --json > .evofork/canary.json
 pnpm evo observe canary --input .evofork/canary.json --json
 pnpm --filter @evofork/adapter-opentelemetry test
@@ -50,7 +52,7 @@ Local demo smoke path:
 
 Release notes:
 
-- v0.3 is local-first and uses in-memory repositories by default.
+- v0.4 is local-first and uses in-memory repositories by default.
 - Mock LLM is the default RFC path.
 - Production GitHub writes and deployments are not invoked by default.
 - Rollout Observer produces recommendations only and does not change production
@@ -63,4 +65,8 @@ Release notes:
   connect to Kubernetes, execute `kubectl`, or write cluster state.
 - Branch promotion and sunset remain governed local state changes with policy
   and audit records; they do not deploy or mutate production traffic directly.
+- Local workspace state includes an `apps` index; branch and audit records remain
+  app-scoped.
+- Manifest-configured API servers reject app/surface requests outside the active
+  manifest scope.
 - `.env`, `.next`, `.turbo`, `dist`, and local `.evofork` state must not be committed.

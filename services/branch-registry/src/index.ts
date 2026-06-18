@@ -68,9 +68,19 @@ export type AuditLogFilter = {
   resourceId?: string;
 };
 
+export type LocalAppRecord = {
+  id: string;
+  name?: string;
+  defaultBranch: string;
+  manifestPath?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type LocalDemoState = {
   path: string;
   data: Record<string, unknown>;
+  apps: LocalAppRecord[];
   signals: unknown[];
   branches: BranchRecord[];
   auditLogs: AuditLogRecord[];
@@ -87,6 +97,13 @@ export type CreateLocalBranchInput = {
   priority?: number;
   evalReport?: unknown;
   actor?: string;
+};
+
+export type UpsertLocalAppInput = {
+  id: string;
+  name?: string;
+  defaultBranch?: string;
+  manifestPath?: string;
 };
 
 export interface BranchRegistry {
@@ -354,6 +371,7 @@ export function emptyLocalDemoState(
   return {
     path,
     data,
+    apps: normalizeLocalApps(data),
     signals: Array.isArray(data.signals) ? data.signals : [],
     branches: [],
     auditLogs: []
@@ -393,6 +411,7 @@ export async function writeLocalDemoState(state: LocalDemoState): Promise<void> 
     `${JSON.stringify(
       {
         ...state.data,
+        apps: state.apps,
         signals: state.signals,
         branches: state.branches,
         auditLogs: state.auditLogs
@@ -411,6 +430,7 @@ export function parseLocalDemoState(
   return {
     path,
     data: value,
+    apps: normalizeLocalApps(value),
     signals: Array.isArray(value.signals) ? value.signals : [],
     branches: Array.isArray(value.branches)
       ? value.branches.flatMap((branch): BranchRecord[] => normalizeLocalBranchRecord(branch))
@@ -433,6 +453,14 @@ export function createLocalBranch(
   if (state.branches.some((branch) => branch.id === id)) {
     throw new BranchRegistryError("branch_already_exists", `Branch already exists: ${id}`);
   }
+
+  upsertLocalApp(
+    state,
+    {
+      id: input.appId
+    },
+    now
+  );
 
   const branch: BranchRecord = {
     id,
@@ -637,6 +665,43 @@ export function createDemoSeedAuditLogs(
   ];
 }
 
+export function listLocalApps(state: LocalDemoState): LocalAppRecord[] {
+  return state.apps.map(cloneLocalApp);
+}
+
+export function upsertLocalApp(
+  state: LocalDemoState,
+  input: UpsertLocalAppInput,
+  now = new Date().toISOString()
+): LocalAppRecord {
+  if (!input.id || input.id.trim() === "") {
+    throw new BranchRegistryError("invalid_app", "Local app id is required");
+  }
+
+  const existing = state.apps.find((app) => app.id === input.id);
+
+  if (existing) {
+    existing.name = input.name ?? existing.name;
+    existing.defaultBranch = input.defaultBranch ?? existing.defaultBranch;
+    existing.manifestPath = input.manifestPath ?? existing.manifestPath;
+    existing.updatedAt = now;
+
+    return cloneLocalApp(existing);
+  }
+
+  const app: LocalAppRecord = {
+    id: input.id,
+    ...(input.name ? { name: input.name } : {}),
+    defaultBranch: input.defaultBranch ?? "main",
+    ...(input.manifestPath ? { manifestPath: input.manifestPath } : {}),
+    createdAt: now,
+    updatedAt: now
+  };
+
+  state.apps.push(app);
+  return cloneLocalApp(app);
+}
+
 function requireLocalBranch(state: LocalDemoState, id: string): BranchRecord {
   const branch = state.branches.find((candidate) => candidate.id === id);
 
@@ -694,6 +759,64 @@ function nextLocalId(prefix: string, existing: Set<string>): string {
   }
 
   return id;
+}
+
+function normalizeLocalApps(value: Record<string, unknown>): LocalAppRecord[] {
+  const explicitApps = Array.isArray(value.apps)
+    ? value.apps.flatMap((app): LocalAppRecord[] => normalizeLocalAppRecord(app))
+    : [];
+
+  if (explicitApps.length > 0) {
+    return explicitApps;
+  }
+
+  const appId = readString(value.appId);
+
+  if (!appId) {
+    return [];
+  }
+
+  const generatedAt = readString(value.generatedAt) ?? new Date(0).toISOString();
+  const name = readString(value.appName);
+  const manifestPath = readString(value.manifestPath);
+
+  return [
+    {
+      id: appId,
+      ...(name ? { name } : {}),
+      defaultBranch: readString(value.defaultBranch) ?? "main",
+      ...(manifestPath ? { manifestPath } : {}),
+      createdAt: generatedAt,
+      updatedAt: generatedAt
+    }
+  ];
+}
+
+function normalizeLocalAppRecord(value: unknown): LocalAppRecord[] {
+  if (!isRecord(value) || typeof value.id !== "string" || value.id.trim() === "") {
+    return [];
+  }
+
+  const createdAt = readString(value.createdAt) ?? new Date(0).toISOString();
+  const name = readString(value.name);
+  const manifestPath = readString(value.manifestPath);
+
+  return [
+    {
+      id: value.id,
+      ...(name ? { name } : {}),
+      defaultBranch: readString(value.defaultBranch) ?? "main",
+      ...(manifestPath ? { manifestPath } : {}),
+      createdAt,
+      updatedAt: readString(value.updatedAt) ?? createdAt
+    }
+  ];
+}
+
+function cloneLocalApp(app: LocalAppRecord): LocalAppRecord {
+  return {
+    ...app
+  };
 }
 
 function requireStatus(branch: BranchRecord, allowed: BranchStatus[], action: string): void {

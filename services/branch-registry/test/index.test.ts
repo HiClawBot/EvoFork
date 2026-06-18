@@ -9,12 +9,14 @@ import {
   approveLocalBranch,
   createLocalBranch,
   emptyLocalDemoState,
+  listLocalApps,
   promoteLocalBranch,
   readLocalDemoState,
   recordLocalBranchAuditLog,
   revertLocalBranch,
   rolloutLocalBranch,
   serviceId,
+  upsertLocalApp,
   writeLocalDemoState
 } from "../src/index.js";
 
@@ -147,6 +149,15 @@ describe(serviceId, () => {
       signals: []
     });
 
+    expect(listLocalApps(state)).toEqual([
+      {
+        id: "demo-saas",
+        defaultBranch: "main",
+        createdAt: "1970-01-01T00:00:00.000Z",
+        updatedAt: "1970-01-01T00:00:00.000Z"
+      }
+    ]);
+
     const created = createLocalBranch(
       state,
       {
@@ -218,6 +229,55 @@ describe(serviceId, () => {
       "branch_promoted",
       "branch_reverted"
     ]);
+  });
+
+  it("tracks multiple apps in local workspace state", async () => {
+    const outputPath = join(await mkdtemp(join(tmpdir(), "evofork-multi-app-")), "state.json");
+    const state = emptyLocalDemoState(outputPath);
+
+    upsertLocalApp(
+      state,
+      {
+        id: "demo-saas",
+        name: "Demo SaaS",
+        defaultBranch: "main",
+        manifestPath: "evo.manifest.yaml"
+      },
+      "2026-06-18T00:00:00.000Z"
+    );
+    upsertLocalApp(
+      state,
+      {
+        id: "docs-site",
+        name: "Docs Site",
+        defaultBranch: "main",
+        manifestPath: "examples/docs/evo.manifest.yaml"
+      },
+      "2026-06-18T00:01:00.000Z"
+    );
+    createLocalBranch(
+      state,
+      {
+        appId: "docs-site",
+        surfaceId: "docs.quickstart",
+        branchName: "docs.quickstart.shorter.v1",
+        branchId: "br_docs"
+      },
+      "2026-06-18T00:02:00.000Z"
+    );
+
+    await writeLocalDemoState(state);
+
+    const restored = await readLocalDemoState(outputPath);
+    expect(listLocalApps(restored).map((app) => app.id)).toEqual(["demo-saas", "docs-site"]);
+    expect(restored.branches[0]).toMatchObject({
+      appId: "docs-site",
+      surfaceId: "docs.quickstart"
+    });
+    expect(restored.auditLogs[0]).toMatchObject({
+      appId: "docs-site",
+      event: "branch_created"
+    });
   });
 
   it("records explicit local branch audit events", () => {
@@ -308,10 +368,19 @@ describe(serviceId, () => {
     await writeLocalDemoState(state);
 
     const parsed = JSON.parse(await readFile(outputPath, "utf8")) as {
+      apps: Array<{ id: string }>;
       signals: unknown[];
       branches: Array<{ id: string; createdBy: string }>;
       auditLogs: Array<{ event: string }>;
     };
+    expect(parsed.apps).toEqual([
+      {
+        id: "demo-saas",
+        defaultBranch: "main",
+        createdAt: "1970-01-01T00:00:00.000Z",
+        updatedAt: "2026-06-18T00:00:00.000Z"
+      }
+    ]);
     expect(parsed.signals).toHaveLength(1);
     expect(parsed.branches[0]).toMatchObject({
       id: "br_fixture",

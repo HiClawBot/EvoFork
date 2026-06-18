@@ -4,7 +4,7 @@
 
 ## English
 
-This guide runs the local EvoFork v0.3 developer loop without production LLM,
+This guide runs the local EvoFork v0.4 developer loop without production LLM,
 GitHub, database, observability, or deployment credentials.
 
 Prerequisites:
@@ -242,14 +242,14 @@ Suggested demo path:
 - If ports are already in use, stop the existing local server or change the app
   dev port before running `pnpm dev`.
 - The mock LLM path does not need `OPENAI_API_KEY`.
-- GitHub PR creation is not invoked by default in v0.3.
+- GitHub PR creation is not invoked by default in v0.4.
 - Rollout Observer does not change production traffic or branch state.
 
 ---
 
 ## 中文
 
-本指南用于跑通本地 EvoFork v0.3 开发者闭环，不需要生产 LLM、GitHub、数据库、观测或部署凭证。
+本指南用于跑通本地 EvoFork v0.4 开发者闭环，不需要生产 LLM、GitHub、数据库、观测或部署凭证。
 
 前置要求：
 

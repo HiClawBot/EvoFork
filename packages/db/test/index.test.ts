@@ -14,6 +14,7 @@ describe("@evofork/db", () => {
         "apps",
         "auditLogs",
         "evalReports",
+        "evoforkMeta",
         "evoBranches",
         "feedbackSignals",
         "rfcs",
@@ -22,14 +23,16 @@ describe("@evofork/db", () => {
     );
   });
 
-  it("keeps the initial migration aligned with exported table names", async () => {
-    const migration = await readFile(
-      new URL("../migrations/0001_initial.sql", import.meta.url),
-      "utf8"
+  it("keeps migrations aligned with exported table names", async () => {
+    const migrations = await Promise.all(
+      ["0001_initial.sql", "0002_workspace_metadata.sql"].map((name) =>
+        readFile(new URL(`../migrations/${name}`, import.meta.url), "utf8")
+      )
     );
+    const combinedSql = migrations.join("\n");
 
     for (const tableName of evoforkTableNames) {
-      expect(migration).toContain(`create table if not exists ${tableName}`);
+      expect(combinedSql).toContain(`create table if not exists ${tableName}`);
     }
   });
 
@@ -47,7 +50,21 @@ describe("@evofork/db", () => {
   it("lists migrations in deterministic order", async () => {
     const migrations = await listMigrationFiles();
 
-    expect(migrations.map((migration) => migration.name)).toEqual(["0001_initial.sql"]);
+    expect(migrations.map((migration) => migration.name)).toEqual([
+      "0001_initial.sql",
+      "0002_workspace_metadata.sql"
+    ]);
     expect(formatMigrationPlan(migrations)[0]).toContain("0001_initial");
+  });
+
+  it("records v0.4 workspace metadata in migrations", async () => {
+    const migration = await readFile(
+      new URL("../migrations/0002_workspace_metadata.sql", import.meta.url),
+      "utf8"
+    );
+
+    expect(migration).toContain("schema_version");
+    expect(migration).toContain("multi-app-workspace");
+    expect(migration).toContain("on conflict (key) do update");
   });
 });
