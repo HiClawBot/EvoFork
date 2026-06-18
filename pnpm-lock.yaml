@@ -60,6 +60,9 @@ importers:
       '@evofork/patch-agent':
         specifier: workspace:*
         version: link:../../services/patch-agent
+      '@evofork/rollout-observer':
+        specifier: workspace:*
+        version: link:../../services/rollout-observer
       next:
         specifier: ^16.2.9
         version: 16.2.9(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

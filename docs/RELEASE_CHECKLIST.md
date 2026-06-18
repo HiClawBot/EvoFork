@@ -30,13 +30,16 @@ Local demo smoke path:
 8. Confirm local seed feedback is visible if the API has no records yet.
 9. Generate RFC.
 10. Create demo branch.
-11. Confirm the pricing page resolves `pricing.hero.new-user-clarity.v1`.
-12. Revert the branch and confirm routing falls back to `default`.
+11. Confirm the Admin Console Rollout Observer panel shows recommendation,
+    metric rows, and audit payload summary.
+12. Confirm the pricing page resolves `pricing.hero.new-user-clarity.v1`.
+13. Revert the branch and confirm routing falls back to `default`.
 
 Release notes:
 
 - v0.3 is local-first and uses in-memory repositories by default.
 - Mock LLM is the default RFC path.
 - Production GitHub writes and deployments are not invoked by default.
-- Rollout Observer produces recommendations only and does not change production traffic.
+- Rollout Observer produces recommendations only and does not change production
+  traffic or branch state.
 - `.env`, `.next`, `.turbo`, `dist`, and local `.evofork` state must not be committed.

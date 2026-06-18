@@ -206,6 +206,118 @@ p {
   font-size: 12px;
 }
 
+.canary-block {
+  display: grid;
+  gap: 14px;
+}
+
+.canary-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.canary-summary > div {
+  min-width: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.canary-summary small,
+.canary-metric small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.canary-summary strong {
+  display: block;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  font-size: 22px;
+}
+
+.canary-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.canary-detail span,
+.canary-reasons span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.canary-metrics {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+.canary-metric {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, auto);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.canary-metric > div {
+  min-width: 0;
+}
+
+.canary-metric strong,
+.canary-metric span {
+  overflow-wrap: anywhere;
+}
+
+.canary-metric span:not(.pill) {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pill {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pill.passed {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  color: var(--accent-strong);
+}
+
+.pill.warning,
+.pill.failed {
+  border-color: color-mix(in srgb, var(--warning) 44%, var(--line));
+  color: var(--warning);
+}
+
+.canary-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.canary-audit {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
 .status-list {
   display: grid;
   gap: 0;
@@ -282,7 +394,9 @@ pre {
 @media (max-width: 860px) {
   .dashboard,
   .content-grid,
-  .metric-grid {
+  .metric-grid,
+  .canary-summary,
+  .canary-metric {
     grid-template-columns: 1fr;
   }
 }

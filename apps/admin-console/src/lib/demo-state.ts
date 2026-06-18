@@ -26,7 +26,8 @@ export async function readDemoSeed(path = process.env.EVOFORK_DEMO_SEED_PATH): P
         branchName: branch.branchName,
         status: branch.status,
         rolloutPercentage: branch.rolloutPercentage,
-        evalReport: branch.evalReport
+        evalReport: branch.evalReport,
+        updatedAt: branch.updatedAt
       })),
       auditLogs: state.auditLogs.map((auditLog) => ({
         id: auditLog.id,

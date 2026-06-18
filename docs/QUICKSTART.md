@@ -211,8 +211,10 @@ Suggested demo path:
 4. Generate an RFC.
 5. Create the demo branch.
 6. Confirm routing resolves `pricing.hero.new-user-clarity.v1`.
-7. Revert the branch.
-8. Confirm routing falls back to `default`.
+7. Confirm the Admin Console shows the Rollout Observer recommendation and
+   metric rows.
+8. Revert the branch.
+9. Confirm routing falls back to `default`.
 
 ## Troubleshooting
 
@@ -424,8 +426,9 @@ API server:        http://127.0.0.1:3333/health
 4. 生成 RFC。
 5. 创建 demo branch。
 6. 确认路由命中 `pricing.hero.new-user-clarity.v1`。
-7. 回滚该 branch。
-8. 确认路由回到 `default`。
+7. 确认 Admin Console 显示 Rollout Observer recommendation 和 metric rows。
+8. 回滚该 branch。
+9. 确认路由回到 `default`。
 
 ## 常见问题
 

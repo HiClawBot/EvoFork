@@ -1,6 +1,6 @@
 {
   "name": "@evofork/admin-console",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -19,6 +19,7 @@
     "@evofork/insight-worker": "workspace:*",
     "@evofork/manifest-parser": "workspace:*",
     "@evofork/patch-agent": "workspace:*",
+    "@evofork/rollout-observer": "workspace:*",
     "next": "^16.2.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
