@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   analyzeCanary,
+  buildCanaryInputFromMetricEvents,
   getCanaryFixture,
   listCanaryFixtures,
   serviceId
@@ -46,4 +47,88 @@ describe(serviceId, () => {
     ]);
     expect(getCanaryFixture("healthy").metrics[0].canary).toBe(0.138);
   });
+
+  it("builds canary input from local metric events", () => {
+    const input = buildCanaryInputFromMetricEvents({
+      appId: "demo-saas",
+      surfaceId: "pricing.hero",
+      branchId: "br_demo_seed",
+      branchName: "pricing.hero.new-user-clarity.v1",
+      rolloutPercentage: 25,
+      minSampleSize: 2,
+      observedAt: "2026-06-17T00:00:00.000Z",
+      events: [
+        metricEvent("baseline_1", null, {
+          value: 0,
+          cohort: "baseline"
+        }),
+        metricEvent("baseline_2", null, {
+          value: 1,
+          cohort: "baseline"
+        }),
+        metricEvent("canary_1", "br_demo_seed", {
+          value: 1,
+          cohort: "canary"
+        }),
+        metricEvent("canary_2", "br_demo_seed", {
+          value: 1,
+          cohort: "canary"
+        })
+      ]
+    });
+
+    expect(input).toMatchObject({
+      appId: "demo-saas",
+      surfaceId: "pricing.hero",
+      branchId: "br_demo_seed",
+      rolloutPercentage: 25,
+      sampleSize: 2,
+      metrics: [
+        {
+          name: "pricing_to_signup_conversion",
+          baseline: 0.5,
+          canary: 1,
+          direction: "increase"
+        }
+      ]
+    });
+
+    expect(analyzeCanary(input).recommendation).toBe("promote");
+  });
+
+  it("rejects metric event sets without baseline and canary pairs", () => {
+    expect(() =>
+      buildCanaryInputFromMetricEvents({
+        appId: "demo-saas",
+        surfaceId: "pricing.hero",
+        branchId: "br_demo_seed",
+        rolloutPercentage: 25,
+        events: [
+          metricEvent("canary_1", "br_demo_seed", {
+            value: 1,
+            cohort: "canary"
+          })
+        ]
+      })
+    ).toThrow("No complete canary metrics");
+  });
 });
+
+function metricEvent(
+  sessionId: string,
+  branchId: string | null,
+  properties: Record<string, unknown>
+) {
+  return {
+    appId: "demo-saas",
+    event: "metric_observed",
+    surfaceId: "pricing.hero",
+    branchId,
+    sessionId,
+    properties: {
+      metric: "pricing_to_signup_conversion",
+      direction: "increase",
+      ...properties
+    }
+  };
+}

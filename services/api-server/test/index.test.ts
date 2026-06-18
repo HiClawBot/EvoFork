@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryBranchRegistry } from "@evofork/branch-registry";
-import { InMemorySignalRepository } from "@evofork/signal-hub";
+import {
+  InMemoryMetricEventRepository,
+  InMemorySignalRepository
+} from "@evofork/signal-hub";
 import { buildApiServer, serviceId } from "../src/index.js";
 
 describe(serviceId, () => {
@@ -212,8 +215,85 @@ describe(serviceId, () => {
         appId: "demo-saas",
         event: "variant_exposed",
         surfaceId: "pricing.hero",
+        branchId: null,
         properties: {
           variant: "default"
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("lists metric events for local observer input building", async () => {
+    const { app } = await createTestServer();
+
+    try {
+      const payloads = [
+        {
+          appId: "demo-saas",
+          event: "metric_observed",
+          surfaceId: "pricing.hero",
+          branchId: null,
+          sessionId: "session_baseline",
+          properties: {
+            metric: "pricing_to_signup_conversion",
+            value: 0,
+            cohort: "baseline",
+            direction: "increase"
+          }
+        },
+        {
+          appId: "demo-saas",
+          event: "metric_observed",
+          surfaceId: "pricing.hero",
+          branchId: "br_demo_seed",
+          sessionId: "session_canary",
+          properties: {
+            metric: "pricing_to_signup_conversion",
+            value: 1,
+            cohort: "canary",
+            direction: "increase"
+          }
+        },
+        {
+          appId: "other-app",
+          event: "metric_observed",
+          surfaceId: "pricing.hero",
+          branchId: "br_demo_seed",
+          properties: {
+            metric: "pricing_to_signup_conversion",
+            value: 1
+          }
+        }
+      ];
+
+      for (const payload of payloads) {
+        const createResponse = await app.inject({
+          method: "POST",
+          url: "/v1/events",
+          payload
+        });
+
+        expect(createResponse.statusCode).toBe(202);
+      }
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/v1/events?appId=demo-saas&surfaceId=pricing.hero&branchId=br_demo_seed&event=metric_observed"
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().events).toHaveLength(1);
+      expect(response.json().events[0]).toMatchObject({
+        appId: "demo-saas",
+        surfaceId: "pricing.hero",
+        branchId: "br_demo_seed",
+        event: "metric_observed",
+        properties: {
+          metric: "pricing_to_signup_conversion",
+          value: 1,
+          cohort: "canary"
         }
       });
     } finally {
@@ -387,12 +467,14 @@ describe(serviceId, () => {
 
 async function createTestServer() {
   const repository = new InMemorySignalRepository();
+  const metricEventRepository = new InMemoryMetricEventRepository();
   const branchRegistry = new InMemoryBranchRegistry({
     idGenerator: createIdGenerator("br"),
     clock: fixedClock
   });
   const app = buildApiServer({
     signalRepository: repository,
+    metricEventRepository,
     branchRegistry
   });
 
@@ -401,6 +483,7 @@ async function createTestServer() {
   return {
     app,
     repository,
+    metricEventRepository,
     branchRegistry
   };
 }

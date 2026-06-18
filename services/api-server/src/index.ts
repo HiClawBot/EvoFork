@@ -12,7 +12,9 @@ import Fastify, {
   type FastifyRequest
 } from "fastify";
 import {
+  InMemoryMetricEventRepository,
   InMemorySignalRepository,
+  type MetricEventRepository,
   type SignalRepository
 } from "@evofork/signal-hub";
 import { z, ZodError, type ZodSchema } from "zod";
@@ -22,6 +24,7 @@ export const serviceId = "@evofork/api-server";
 export type ApiServerOptions = {
   logger?: boolean;
   signalRepository?: SignalRepository;
+  metricEventRepository?: MetricEventRepository;
   branchRegistry?: BranchRegistry;
 };
 
@@ -93,6 +96,13 @@ const listSignalsQuerySchema = z.object({
   appId: z.string().min(1).optional()
 });
 
+const listEventsQuerySchema = z.object({
+  appId: z.string().min(1).optional(),
+  surfaceId: z.string().min(1).optional(),
+  branchId: z.string().min(1).optional(),
+  event: z.string().min(1).optional()
+});
+
 const listBranchesQuerySchema = z.object({
   appId: z.string().min(1).optional(),
   surfaceId: z.string().min(1).optional(),
@@ -162,8 +172,9 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
     logger: options.logger ?? false
   });
   const signalRepository = options.signalRepository ?? new InMemorySignalRepository();
+  const metricEventRepository =
+    options.metricEventRepository ?? new InMemoryMetricEventRepository();
   const branchRegistry = options.branchRegistry ?? new InMemoryBranchRegistry();
-  const events: Array<z.infer<typeof eventSchema> & { createdAt: string }> = [];
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ZodError) {
@@ -264,15 +275,29 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
 
       v1.post("/events", async (request, reply) => {
         const input = parseBody(eventSchema, request);
-        const event = {
-          ...input,
-          properties: input.properties ?? {},
-          createdAt: new Date().toISOString()
-        };
-
-        events.push(event);
+        const event = await metricEventRepository.create({
+          appId: input.appId,
+          event: input.event,
+          surfaceId: input.surfaceId,
+          branchId: input.branchId,
+          userId: input.userId,
+          sessionId: input.sessionId,
+          properties: input.properties
+        });
 
         return reply.status(202).send({ event });
+      });
+
+      v1.get("/events", async (request, reply) => {
+        const query = listEventsQuerySchema.parse(request.query);
+        const events = await metricEventRepository.list({
+          appId: query.appId,
+          surfaceId: query.surfaceId,
+          branchId: query.branchId,
+          event: query.event
+        });
+
+        return reply.send({ events });
       });
 
       v1.get("/branches", async (request, reply) => {

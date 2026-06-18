@@ -35,6 +35,15 @@ export type FeedbackInput = {
 
 export type TrackProperties = Record<string, unknown>;
 
+export type TrackInput = {
+  event: string;
+  surfaceId?: string;
+  branchId?: string | null;
+  userId?: string;
+  sessionId?: string;
+  properties?: TrackProperties;
+};
+
 export type VariantContext = {
   userId?: string;
   anonymousId?: string;
@@ -113,8 +122,19 @@ export class EvoClient {
     });
   }
 
-  async track(event: string, properties: TrackProperties = {}): Promise<EvoResult<undefined>> {
-    if (!event) {
+  async track(
+    eventOrInput: string | TrackInput,
+    properties: TrackProperties = {}
+  ): Promise<EvoResult<undefined>> {
+    const input =
+      typeof eventOrInput === "string"
+        ? {
+            event: eventOrInput,
+            properties
+          }
+        : eventOrInput;
+
+    if (!input.event) {
       return this.handleFailure(new Error("track requires event"));
     }
 
@@ -122,9 +142,12 @@ export class EvoClient {
       path: "/v1/events",
       body: {
         appId: this.appId,
-        event,
-        properties,
-        sessionId: this.sessionId
+        event: input.event,
+        surfaceId: input.surfaceId,
+        branchId: input.branchId,
+        userId: input.userId,
+        properties: input.properties ?? {},
+        sessionId: input.sessionId ?? this.sessionId
       }
     });
   }

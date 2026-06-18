@@ -69,6 +69,49 @@ describe(moduleId, () => {
     });
   });
 
+  it("sends local metric events with surface and branch context", async () => {
+    const fetchMock = createFetchMock(new Response(null, { status: 204 }));
+    const client = new EvoClient({
+      endpoint: "https://api.example.test",
+      appId: "demo-saas",
+      sessionId: "session_123",
+      fetch: fetchMock
+    });
+
+    await expect(
+      client.track({
+        event: "metric_observed",
+        surfaceId: "pricing.hero",
+        branchId: null,
+        userId: "user_123",
+        properties: {
+          metric: "pricing_to_signup_conversion",
+          value: 1,
+          cohort: "baseline",
+          direction: "increase"
+        }
+      })
+    ).resolves.toEqual({
+      ok: true,
+      data: undefined
+    });
+
+    expect(requestBody(fetchMock)).toMatchObject({
+      appId: "demo-saas",
+      event: "metric_observed",
+      surfaceId: "pricing.hero",
+      branchId: null,
+      userId: "user_123",
+      sessionId: "session_123",
+      properties: {
+        metric: "pricing_to_signup_conversion",
+        value: 1,
+        cohort: "baseline",
+        direction: "increase"
+      }
+    });
+  });
+
   it("does not throw for mutation network failures by default", async () => {
     const fetchMock = createRejectingFetchMock(new Error("network down"));
     const client = new EvoClient({

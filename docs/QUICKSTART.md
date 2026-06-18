@@ -189,6 +189,23 @@ pnpm evo observe canary --fixture regression --json
 The regression fixture recommends `rollback` and exits with `1`. This is an
 auditable recommendation only; it does not deploy, merge, or roll back anything.
 
+Build a canary input from the local demo metric events created by
+`pnpm evo demo seed`:
+
+```bash
+pnpm evo observe input \
+  --surface pricing.hero \
+  --branch-id br_demo_seed \
+  --branch pricing.hero.new-user-clarity.v1 \
+  --rollout 25 \
+  --min-sample 10 \
+  --json > .evofork/canary.json
+pnpm evo observe canary --input .evofork/canary.json --json
+```
+
+The input builder reads local data and computes baseline/canary metric averages.
+It does not send telemetry to third parties or change branch state.
+
 ## 10. Run the UI Demo
 
 ```bash
@@ -403,6 +420,22 @@ pnpm evo observe canary --fixture regression --json
 
 回归 fixture 会建议 `rollback` 并返回退出码 `1`。这只是可审计建议，
 不会自动部署、合并或回滚任何内容。
+
+从 `pnpm evo demo seed` 创建的本地 demo metric events 构建 canary 输入：
+
+```bash
+pnpm evo observe input \
+  --surface pricing.hero \
+  --branch-id br_demo_seed \
+  --branch pricing.hero.new-user-clarity.v1 \
+  --rollout 25 \
+  --min-sample 10 \
+  --json > .evofork/canary.json
+pnpm evo observe canary --input .evofork/canary.json --json
+```
+
+input builder 只读取本地数据并计算 baseline/canary 指标平均值。
+它不会向第三方发送遥测，也不会修改 branch state。
 
 ## 10. 运行 UI Demo
 
