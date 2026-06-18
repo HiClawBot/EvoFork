@@ -8,6 +8,7 @@
 - [Data Model](./DATA_MODEL.md)
 - [Eval Gate](./EVAL_GATE.md)
 - [Rollout Observer](./ROLLOUT_OBSERVER.md)
+- [Public Site and GitHub Pages](./PUBLIC_SITE.md)
 - [OpenTelemetry Adapter](./OPENTELEMETRY_ADAPTER.md)
 - [Argo Rollouts Adapter](./ARGO_ROLLOUTS_ADAPTER.md)
 - [Router](./ROUTER.md)

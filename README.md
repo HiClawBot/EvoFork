@@ -182,7 +182,8 @@ evofork/
 │   └── router/
 ├── apps/
 │   ├── admin-console/
-│   └── demo-nextjs/
+│   ├── demo-nextjs/
+│   └── website/
 ├── adapters/
 │   ├── llm-openai-compatible/
 │   ├── llm-local/
@@ -325,6 +326,17 @@ See [Quickstart](./docs/QUICKSTART.md) for the full local walkthrough,
 [Safety Fixtures](./docs/SAFETY_FIXTURES.md) for reusable safety checks, and
 [Rollout Observer](./docs/ROLLOUT_OBSERVER.md) for canary recommendations.
 
+Build the public website locally:
+
+```bash
+pnpm --filter @evofork/website build
+pnpm --filter @evofork/website dev -- --host 127.0.0.1 --port 4173
+```
+
+The independent bilingual website lives in `apps/website` and is published from
+`apps/website/dist` through the GitHub Pages workflow. See
+[Public Site and GitHub Pages](./docs/PUBLIC_SITE.md).
+
 Optional PostgreSQL schema preview:
 
 ```bash
@@ -458,6 +470,7 @@ and are not invoked by default.
 - [Safety Fixtures](./docs/SAFETY_FIXTURES.md)
 - [Eval Gate](./docs/EVAL_GATE.md)
 - [Rollout Observer](./docs/ROLLOUT_OBSERVER.md)
+- [Public Site and GitHub Pages](./docs/PUBLIC_SITE.md)
 - [Router](./docs/ROUTER.md)
 - [Release Checklist](./docs/RELEASE_CHECKLIST.md)
 - [Codex Tasks](./CODEX_TASKS.md)
@@ -764,6 +777,17 @@ Rollout Observer canary 建议。默认 API server 使用内存仓库。
 [Safety Fixtures](./docs/SAFETY_FIXTURES.md)，canary 建议见
 [Rollout Observer](./docs/ROLLOUT_OBSERVER.md)。
 
+本地构建公开官网：
+
+```bash
+pnpm --filter @evofork/website build
+pnpm --filter @evofork/website dev -- --host 127.0.0.1 --port 4173
+```
+
+独立双语官网位于 `apps/website`，并通过 GitHub Pages workflow 从
+`apps/website/dist` 发布。详见
+[Public Site and GitHub Pages](./docs/PUBLIC_SITE.md)。
+
 可选 PostgreSQL schema 预览：
 
 ```bash
@@ -850,6 +874,7 @@ v0.4 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 G
 - [Safety Fixtures](./docs/SAFETY_FIXTURES.md)
 - [Eval Gate](./docs/EVAL_GATE.md)
 - [Rollout Observer](./docs/ROLLOUT_OBSERVER.md)
+- [Public Site and GitHub Pages](./docs/PUBLIC_SITE.md)
 - [Router](./docs/ROUTER.md)
 - [发布清单](./docs/RELEASE_CHECKLIST.md)
 - [Codex 任务](./CODEX_TASKS.md)
