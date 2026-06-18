@@ -7,6 +7,8 @@
 - [Data Model](./DATA_MODEL.md)
 - [Eval Gate](./EVAL_GATE.md)
 - [Rollout Observer](./ROLLOUT_OBSERVER.md)
+- [OpenTelemetry Adapter](./OPENTELEMETRY_ADAPTER.md)
+- [Argo Rollouts Adapter](./ARGO_ROLLOUTS_ADAPTER.md)
 - [Router](./ROUTER.md)
 - [Release Checklist](./RELEASE_CHECKLIST.md)
 - [OpenFeature Provider](./OPENFEATURE_PROVIDER.md)

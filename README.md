@@ -253,6 +253,25 @@ For OpenTelemetry-style local metric points, use the local-only
 `@evofork/adapter-opentelemetry` bridge. It does not export telemetry or require
 an external collector. See [OpenTelemetry Adapter](./docs/OPENTELEMETRY_ADAPTER.md).
 
+Generate an Argo Rollouts dry-run plan without cluster writes:
+
+```bash
+pnpm evo argo plan \
+  --surface pricing.hero \
+  --branch-id br_demo_seed \
+  --branch pricing.hero.new-user-clarity.v1 \
+  --weight 25 \
+  --workload demo-nextjs \
+  --stable-service demo-nextjs-stable \
+  --canary-service demo-nextjs-canary \
+  --approved \
+  --json
+```
+
+The Argo adapter generates reviewable local plan output and a JSON manifest
+only. It does not connect to Kubernetes, execute `kubectl`, or change production
+traffic. See [Argo Rollouts Adapter](./docs/ARGO_ROLLOUTS_ADAPTER.md).
+
 Manage local branch state without production credentials:
 
 ```bash
@@ -670,6 +689,25 @@ pnpm evo observe canary --input .evofork/canary.json --json
 对于 OpenTelemetry 风格的本地 metric points，可以使用 local-only 的
 `@evofork/adapter-opentelemetry` bridge。它不会导出 telemetry，也不需要外部
 collector。详见 [OpenTelemetry Adapter](./docs/OPENTELEMETRY_ADAPTER.md)。
+
+生成不写入 cluster 的 Argo Rollouts dry-run plan：
+
+```bash
+pnpm evo argo plan \
+  --surface pricing.hero \
+  --branch-id br_demo_seed \
+  --branch pricing.hero.new-user-clarity.v1 \
+  --weight 25 \
+  --workload demo-nextjs \
+  --stable-service demo-nextjs-stable \
+  --canary-service demo-nextjs-canary \
+  --approved \
+  --json
+```
+
+Argo adapter 只生成可审查的本地 plan 输出和 JSON manifest。它不会连接
+Kubernetes、执行 `kubectl`，也不会改变生产流量。详见
+[Argo Rollouts Adapter](./docs/ARGO_ROLLOUTS_ADAPTER.md)。
 
 不使用生产凭证也可以管理本地 branch 状态：
 

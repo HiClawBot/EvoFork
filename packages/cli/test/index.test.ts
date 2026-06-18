@@ -22,6 +22,7 @@ describe("@evofork/cli", () => {
     expect(io.output()).toContain("evo eval fixture");
     expect(io.output()).toContain("evo eval patch-boundary");
     expect(io.output()).toContain("evo observe canary");
+    expect(io.output()).toContain("evo argo plan");
   });
 
   it("validates a manifest file", async () => {
@@ -497,6 +498,107 @@ describe("@evofork/cli", () => {
 
     const report = JSON.parse(canaryIo.output()) as { recommendation: string };
     expect(report.recommendation).toBe("promote");
+  });
+
+  it("generates Argo Rollouts dry-run plans from manifest policy", async () => {
+    const blockedIo = createTestIo();
+    const approvedIo = createTestIo();
+
+    await expect(
+      runCli(
+        [
+          "argo",
+          "plan",
+          "--surface",
+          "pricing.hero",
+          "--branch-id",
+          "br_demo_seed",
+          "--branch",
+          "pricing.hero.new-user-clarity.v1",
+          "--weight",
+          "25",
+          "--workload",
+          "demo-nextjs",
+          "--stable-service",
+          "demo-nextjs-stable",
+          "--canary-service",
+          "demo-nextjs-canary",
+          "--manifest",
+          manifestPath,
+          "--json"
+        ],
+        blockedIo
+      )
+    ).resolves.toBe(1);
+
+    const blocked = JSON.parse(blockedIo.output()) as {
+      decision: string;
+      reasons: string[];
+      safety: { clusterWrites: boolean };
+      manifest: {
+        metadata: { name: string };
+        spec: { strategy: { canary: { steps: Array<{ setWeight?: number }> } } };
+      };
+    };
+    expect(blocked.decision).toBe("blocked");
+    expect(blocked.reasons.join("\n")).toContain("Human approval is required");
+    expect(blocked.safety.clusterWrites).toBe(false);
+    expect(blocked.manifest.metadata.name).toBe("evofork-pricing-hero-br-demo-seed");
+    expect(blocked.manifest.spec.strategy.canary.steps[0]).toEqual({
+      setWeight: 25
+    });
+
+    await expect(
+      runCli(
+        [
+          "argo",
+          "plan",
+          "--surface",
+          "pricing.hero",
+          "--branch-id",
+          "br_demo_seed",
+          "--branch",
+          "pricing.hero.new-user-clarity.v1",
+          "--weight",
+          "25",
+          "--workload",
+          "demo-nextjs",
+          "--stable-service",
+          "demo-nextjs-stable",
+          "--canary-service",
+          "demo-nextjs-canary",
+          "--approved",
+          "--manifest",
+          manifestPath,
+          "--json"
+        ],
+        approvedIo
+      )
+    ).resolves.toBe(0);
+
+    const approved = JSON.parse(approvedIo.output()) as {
+      decision: string;
+      manifestJson: string;
+      audit: { event: string; payload: { clusterWrites: boolean } };
+    };
+    expect(approved.decision).toBe("ready");
+    expect(JSON.parse(approved.manifestJson)).toMatchObject({
+      kind: "Rollout",
+      spec: {
+        strategy: {
+          canary: {
+            stableService: "demo-nextjs-stable",
+            canaryService: "demo-nextjs-canary"
+          }
+        }
+      }
+    });
+    expect(approved.audit).toMatchObject({
+      event: "argo_rollout_dry_run_generated",
+      payload: {
+        clusterWrites: false
+      }
+    });
   });
 
   it("tests route matching from a branch fixture", async () => {

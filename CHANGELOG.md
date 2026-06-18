@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.3.5 - Argo Rollouts Dry-Run Adapter
+
+Argo Rollouts planning is now available as a local dry-run adapter.
+
+### Added
+
+- `@evofork/adapter-argo-rollouts` now generates typed dry-run plans and Argo
+  Rollouts JSON manifests from EvoFork branch rollout metadata.
+- CLI command `evo argo plan` for reviewable local rollout planning.
+- Policy-aware blocked plan output when requested rollout weight exceeds
+  manifest rollout constraints without approval.
+- Bilingual Argo Rollouts adapter documentation.
+- Tests for adapter plan generation, blocked policy output, manifest rendering,
+  and CLI integration.
+
+### Changed
+
+- README and release checklist document Argo dry-run planning.
+- Workspace package versions are bumped to `0.3.5`.
+
+### Notes
+
+The Argo adapter is a local planner only. It does not connect to Kubernetes,
+execute `kubectl`, write cluster state, deploy, or mutate production traffic.
+
 ## v0.3.4 - OpenTelemetry Observer Bridge
 
 OpenTelemetry-style local metric points can now feed Rollout Observer.
