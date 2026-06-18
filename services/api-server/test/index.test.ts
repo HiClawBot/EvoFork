@@ -1,10 +1,32 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryBranchRegistry } from "@evofork/branch-registry";
+import { validateManifest, type EvoManifest } from "@evofork/manifest-parser";
 import {
   InMemoryMetricEventRepository,
   InMemorySignalRepository
 } from "@evofork/signal-hub";
 import { buildApiServer, serviceId } from "../src/index.js";
+
+const testManifest = validateManifest({
+  app: {
+    id: "demo-saas",
+    default_branch: "main"
+  },
+  surfaces: [
+    {
+      id: "pricing.hero",
+      type: "react-component",
+      path: "apps/demo-nextjs/src/app/pricing/PricingHero.tsx",
+      owner: "growth-team",
+      allowed_changes: ["copy", "layout", "cta_text"],
+      forbidden_changes: ["payment_logic", "authentication", "database_schema"],
+      rollout: {
+        max_auto_percentage: 5,
+        require_human_approval: true
+      }
+    }
+  ]
+});
 
 describe(serviceId, () => {
   it("returns health status", async () => {
@@ -404,6 +426,187 @@ describe(serviceId, () => {
     }
   });
 
+  it("policy-gates branch promotion and requires eval pass", async () => {
+    const { app } = await createTestServer({ manifest: testManifest });
+
+    try {
+      const createResponse = await app.inject({
+        method: "POST",
+        url: "/v1/branches",
+        payload: {
+          appId: "demo-saas",
+          surfaceId: "pricing.hero",
+          branchName: "pricing.hero.new-user-clarity.v1",
+          evalReport: {
+            status: "passed"
+          }
+        }
+      });
+      const branch = createResponse.json().branch as { id: string };
+
+      await app.inject({
+        method: "POST",
+        url: `/v1/branches/${branch.id}/approve`,
+        payload: {
+          actor: "maintainer"
+        }
+      });
+
+      const policyBlockedResponse = await app.inject({
+        method: "POST",
+        url: `/v1/branches/${branch.id}/promote`,
+        payload: {
+          actor: "maintainer"
+        }
+      });
+      expect(policyBlockedResponse.statusCode).toBe(400);
+      expect(policyBlockedResponse.json()).toMatchObject({
+        error: "policy_blocked",
+        auditLog: {
+          event: "policy_blocked"
+        }
+      });
+
+      const promoteResponse = await app.inject({
+        method: "POST",
+        url: `/v1/branches/${branch.id}/promote`,
+        payload: {
+          actor: "maintainer",
+          approved: true
+        }
+      });
+
+      expect(promoteResponse.statusCode).toBe(200);
+      expect(promoteResponse.json()).toMatchObject({
+        branch: {
+          status: "active",
+          rolloutPercentage: 100
+        },
+        policyAuditLog: {
+          event: "policy_allowed"
+        },
+        evalAuditLog: {
+          event: "eval_allowed"
+        }
+      });
+
+      const auditResponse = await app.inject({
+        method: "GET",
+        url: `/v1/audit-logs?resourceId=${branch.id}`
+      });
+      expect(auditResponse.json().auditLogs.map((log: { event: string }) => log.event)).toEqual([
+        "branch_created",
+        "branch_approved",
+        "policy_blocked",
+        "policy_allowed",
+        "eval_allowed",
+        "branch_promoted"
+      ]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("blocks API branch promotion until eval passes", async () => {
+    const { app } = await createTestServer({ manifest: testManifest });
+
+    try {
+      const createResponse = await app.inject({
+        method: "POST",
+        url: "/v1/branches",
+        payload: {
+          appId: "demo-saas",
+          surfaceId: "pricing.hero",
+          branchName: "pricing.hero.new-user-clarity.v1"
+        }
+      });
+      const branch = createResponse.json().branch as { id: string };
+
+      await app.inject({
+        method: "POST",
+        url: `/v1/branches/${branch.id}/approve`,
+        payload: {
+          actor: "maintainer"
+        }
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/v1/branches/${branch.id}/promote`,
+        payload: {
+          actor: "maintainer",
+          approved: true
+        }
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        error: "eval_gate_required",
+        auditLog: {
+          event: "eval_blocked"
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("policy-gates API branch sunset", async () => {
+    const { app } = await createTestServer({ manifest: testManifest });
+
+    try {
+      const createResponse = await app.inject({
+        method: "POST",
+        url: "/v1/branches",
+        payload: {
+          appId: "demo-saas",
+          surfaceId: "pricing.hero",
+          branchName: "pricing.hero.new-user-clarity.v1",
+          evalReport: {
+            status: "passed"
+          }
+        }
+      });
+      const branch = createResponse.json().branch as { id: string };
+      await app.inject({
+        method: "POST",
+        url: `/v1/branches/${branch.id}/approve`,
+        payload: {
+          actor: "maintainer"
+        }
+      });
+      await app.inject({
+        method: "POST",
+        url: `/v1/branches/${branch.id}/promote`,
+        payload: {
+          actor: "maintainer",
+          approved: true
+        }
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/v1/branches/${branch.id}/sunset`,
+        payload: {
+          actor: "maintainer"
+        }
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        branch: {
+          status: "sunset",
+          rolloutPercentage: 0
+        },
+        policyAuditLog: {
+          event: "policy_allowed"
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it("returns default variants for personalization opt-out", async () => {
     const { app } = await createTestServer();
 
@@ -465,7 +668,7 @@ describe(serviceId, () => {
   });
 });
 
-async function createTestServer() {
+async function createTestServer(options: { manifest?: EvoManifest } = {}) {
   const repository = new InMemorySignalRepository();
   const metricEventRepository = new InMemoryMetricEventRepository();
   const branchRegistry = new InMemoryBranchRegistry({
@@ -473,6 +676,7 @@ async function createTestServer() {
     clock: fixedClock
   });
   const app = buildApiServer({
+    manifest: options.manifest,
     signalRepository: repository,
     metricEventRepository,
     branchRegistry

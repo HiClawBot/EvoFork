@@ -1,6 +1,6 @@
 {
   "name": "@evofork/api-server",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@evofork/branch-registry": "workspace:*",
+    "@evofork/manifest-parser": "workspace:*",
+    "@evofork/policy-engine": "workspace:*",
     "@evofork/router": "workspace:*",
     "@evofork/signal-hub": "workspace:*",
     "fastify": "^5.2.1",

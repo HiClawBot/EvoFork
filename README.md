@@ -256,12 +256,15 @@ pnpm evo branch list
 pnpm evo branch create --surface pricing.hero --branch pricing.hero.local-draft.v1
 pnpm evo branch approve br_local_001
 pnpm evo branch rollout br_local_001 --percentage 25 --approved
+pnpm evo branch promote br_local_001 --approved --eval-passed
+pnpm evo branch sunset br_local_001
 pnpm evo branch revert br_demo_seed --reason "local rollback"
 ```
 
-Rollout commands are checked against manifest policy before state changes. A blocked
-rollout writes a local `policy_blocked` audit entry and leaves the branch rollout
-unchanged.
+Rollout, promote, and sunset commands are checked against manifest policy before
+state changes. Promotion also requires Eval Gate evidence via a passed branch
+eval report or `--eval-passed`. Blocked actions write local audit entries and
+leave branch state unchanged.
 
 Check governance policy decisions:
 
@@ -667,11 +670,14 @@ pnpm evo branch list
 pnpm evo branch create --surface pricing.hero --branch pricing.hero.local-draft.v1
 pnpm evo branch approve br_local_001
 pnpm evo branch rollout br_local_001 --percentage 25 --approved
+pnpm evo branch promote br_local_001 --approved --eval-passed
+pnpm evo branch sunset br_local_001
 pnpm evo branch revert br_demo_seed --reason "local rollback"
 ```
 
-rollout 命令会在修改 state 前执行 manifest policy 校验。被阻断的 rollout
-会写入本地 `policy_blocked` audit 记录，并保持 branch rollout 不变。
+rollout、promote 和 sunset 命令会在修改本地 state 前执行 manifest policy
+校验。promotion 还需要通过 branch eval report 或 `--eval-passed` 提供 Eval
+Gate 通过证明。被阻止的动作会写入本地 audit 记录，并保持 branch state 不变。
 
 检查治理 policy 决策：
 

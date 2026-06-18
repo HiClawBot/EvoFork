@@ -96,8 +96,13 @@ export interface BranchRegistry {
   create(input: CreateBranchInput): Promise<BranchRecord>;
   approve(id: string, input?: { actor?: string; approvedBy?: string }): Promise<BranchRecord>;
   rollout(id: string, input: { percentage: number; actor?: string }): Promise<BranchRecord>;
+  promote(id: string, input?: { actor?: string }): Promise<BranchRecord>;
   revert(id: string, input: { reason: string; actor?: string }): Promise<BranchRecord>;
   sunset(id: string, input?: { actor?: string }): Promise<BranchRecord>;
+  recordAudit(
+    id: string,
+    input: { actor?: string; event: string; payload?: Record<string, unknown> }
+  ): Promise<AuditLogRecord>;
 }
 
 export interface AuditLogRepository {
@@ -252,6 +257,22 @@ export class InMemoryBranchRegistry implements BranchRegistry {
     return cloneBranch(branch);
   }
 
+  async promote(id: string, input: { actor?: string } = {}): Promise<BranchRecord> {
+    const branch = this.requireBranch(id);
+    requireStatus(branch, ["canary"], "promote");
+
+    branch.rolloutPercentage = 100;
+    branch.status = "active";
+    branch.updatedAt = this.clock().toISOString();
+
+    await this.writeAudit(branch, input.actor ?? "system", "branch_promoted", {
+      rolloutPercentage: branch.rolloutPercentage,
+      status: branch.status
+    });
+
+    return cloneBranch(branch);
+  }
+
   async revert(id: string, input: { reason: string; actor?: string }): Promise<BranchRecord> {
     const branch = this.requireBranch(id);
     requireStatus(branch, ["draft", "canary", "active"], "revert");
@@ -266,6 +287,22 @@ export class InMemoryBranchRegistry implements BranchRegistry {
     });
 
     return cloneBranch(branch);
+  }
+
+  async recordAudit(
+    id: string,
+    input: { actor?: string; event: string; payload?: Record<string, unknown> }
+  ): Promise<AuditLogRecord> {
+    const branch = this.requireBranch(id);
+
+    return await this.auditLog.write({
+      appId: branch.appId,
+      actor: input.actor ?? "system",
+      event: input.event,
+      resourceType: "branch",
+      resourceId: branch.id,
+      payload: input.payload ?? {}
+    });
   }
 
   async sunset(id: string, input: { actor?: string } = {}): Promise<BranchRecord> {
@@ -466,6 +503,28 @@ export function rolloutLocalBranch(
     branch: cloneBranch(branch),
     auditLog: appendLocalAuditLog(state, branch, actor, "branch_rollout_changed", {
       rolloutPercentage: percentage,
+      status: branch.status
+    }, now)
+  };
+}
+
+export function promoteLocalBranch(
+  state: LocalDemoState,
+  id: string,
+  actor = "local-maintainer",
+  now = new Date().toISOString()
+): { branch: BranchRecord; auditLog: AuditLogRecord } {
+  const branch = requireLocalBranch(state, id);
+  requireStatus(branch, ["canary"], "promote");
+
+  branch.status = "active";
+  branch.rolloutPercentage = 100;
+  branch.updatedAt = now;
+
+  return {
+    branch: cloneBranch(branch),
+    auditLog: appendLocalAuditLog(state, branch, actor, "branch_promoted", {
+      rolloutPercentage: branch.rolloutPercentage,
       status: branch.status
     }, now)
   };

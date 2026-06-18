@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.3.3 - Policy-Gated Promotion and Sunset
+
+Branch promotion and sunset now have explicit governed workflows.
+
+### Added
+
+- Branch Registry `promote` operation and explicit branch audit recording.
+- Local CLI `evo branch promote` with manifest policy checks and Eval Gate
+  evidence requirements.
+- Local CLI `evo branch sunset` now records a policy decision before mutation.
+- API `POST /v1/branches/:id/promote` with policy and Eval Gate checks.
+- API `POST /v1/branches/:id/sunset` now requires manifest policy checks and
+  writes policy audit output.
+- Tests for policy-blocked promote, eval-blocked promote, successful promote,
+  and policy-audited sunset.
+
+### Changed
+
+- README, Quickstart, API spec, and release checklist document governed
+  promotion and sunset.
+- Workspace package versions are bumped to `0.3.3`.
+
+### Notes
+
+Promotion and sunset remain governed branch state transitions. They do not
+deploy, merge, or change production traffic directly.
+
 ## v0.3.2 - Local Metrics Observer Input
 
 Rollout Observer can now build canary observation input from local metric events.

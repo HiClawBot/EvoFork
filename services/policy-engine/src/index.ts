@@ -2,7 +2,7 @@ import { findSurface, type EvoManifest, type EvoSurface } from "@evofork/manifes
 
 export const serviceId = "@evofork/policy-engine";
 
-export type PolicyAction = "patch" | "rollout" | "approve" | "revert" | "sunset";
+export type PolicyAction = "patch" | "rollout" | "promote" | "approve" | "revert" | "sunset";
 
 export type PolicyInput = {
   manifest: EvoManifest;

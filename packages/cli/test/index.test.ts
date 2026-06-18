@@ -799,6 +799,206 @@ describe("@evofork/cli", () => {
     ]);
   });
 
+  it("promotes local canary branches only after policy and eval pass", async () => {
+    const blockedIo = createTestIo();
+    const evalBlockedIo = createTestIo();
+    const promotedIo = createTestIo();
+    const outputPath = join(await mkdtemp(join(tmpdir(), "evofork-branch-promote-")), "seed.json");
+
+    await writeFile(
+      outputPath,
+      `${JSON.stringify(
+        {
+          appId: "demo-saas",
+          surfaceId: "pricing.hero",
+          branches: [
+            {
+              id: "br_promote",
+              appId: "demo-saas",
+              surfaceId: "pricing.hero",
+              branchName: "pricing.hero.new-user-clarity.v1",
+              status: "canary",
+              targetSegments: {
+                lifecycle_stage: "new_user"
+              },
+              rolloutPercentage: 25,
+              priority: 10
+            }
+          ],
+          auditLogs: []
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await expect(
+      runCli(
+        [
+          "branch",
+          "promote",
+          "br_promote",
+          "--state",
+          outputPath,
+          "--manifest",
+          manifestPath,
+          "--json"
+        ],
+        blockedIo
+      )
+    ).resolves.toBe(1);
+
+    const blocked = JSON.parse(blockedIo.output()) as {
+      policyDecision: { allowed: boolean; action: string; requiredApprovals: string[] };
+      auditLog: { event: string };
+    };
+    expect(blocked.policyDecision).toMatchObject({
+      allowed: false,
+      action: "promote"
+    });
+    expect(blocked.policyDecision.requiredApprovals).toContain("human_approval");
+    expect(blocked.auditLog.event).toBe("policy_blocked");
+
+    await expect(
+      runCli(
+        [
+          "branch",
+          "promote",
+          "br_promote",
+          "--approved",
+          "--state",
+          outputPath,
+          "--manifest",
+          manifestPath,
+          "--json"
+        ],
+        evalBlockedIo
+      )
+    ).resolves.toBe(1);
+
+    const evalBlocked = JSON.parse(evalBlockedIo.output()) as {
+      error: string;
+      auditLog: { event: string };
+    };
+    expect(evalBlocked.error).toBe("eval_gate_required");
+    expect(evalBlocked.auditLog.event).toBe("eval_blocked");
+
+    await expect(
+      runCli(
+        [
+          "branch",
+          "promote",
+          "br_promote",
+          "--approved",
+          "--eval-passed",
+          "--state",
+          outputPath,
+          "--manifest",
+          manifestPath,
+          "--json"
+        ],
+        promotedIo
+      )
+    ).resolves.toBe(0);
+
+    const promoted = JSON.parse(promotedIo.output()) as {
+      branch: { status: string; rolloutPercentage: number };
+      policyAuditLog: { event: string };
+      evalAuditLog: { event: string };
+      auditLog: { event: string };
+    };
+    const state = JSON.parse(await readFile(outputPath, "utf8")) as {
+      branches: Array<{ status: string; rolloutPercentage: number }>;
+      auditLogs: Array<{ event: string }>;
+    };
+
+    expect(promoted.branch).toMatchObject({
+      status: "active",
+      rolloutPercentage: 100
+    });
+    expect(promoted.policyAuditLog.event).toBe("policy_allowed");
+    expect(promoted.evalAuditLog.event).toBe("eval_allowed");
+    expect(promoted.auditLog.event).toBe("branch_promoted");
+    expect(state.auditLogs.map((log) => log.event)).toEqual([
+      "policy_blocked",
+      "policy_allowed",
+      "eval_blocked",
+      "policy_allowed",
+      "eval_allowed",
+      "branch_promoted"
+    ]);
+  });
+
+  it("sunsets local branches with policy audit", async () => {
+    const io = createTestIo();
+    const outputPath = join(await mkdtemp(join(tmpdir(), "evofork-branch-sunset-")), "seed.json");
+
+    await writeFile(
+      outputPath,
+      `${JSON.stringify(
+        {
+          appId: "demo-saas",
+          surfaceId: "pricing.hero",
+          branches: [
+            {
+              id: "br_sunset",
+              appId: "demo-saas",
+              surfaceId: "pricing.hero",
+              branchName: "pricing.hero.new-user-clarity.v1",
+              status: "active",
+              targetSegments: {
+                lifecycle_stage: "new_user"
+              },
+              rolloutPercentage: 100,
+              priority: 10
+            }
+          ],
+          auditLogs: []
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    await expect(
+      runCli(
+        [
+          "branch",
+          "sunset",
+          "br_sunset",
+          "--state",
+          outputPath,
+          "--manifest",
+          manifestPath,
+          "--json"
+        ],
+        io
+      )
+    ).resolves.toBe(0);
+
+    const output = JSON.parse(io.output()) as {
+      branch: { status: string; rolloutPercentage: number };
+      policyAuditLog: { event: string };
+      auditLog: { event: string };
+    };
+    const state = JSON.parse(await readFile(outputPath, "utf8")) as {
+      auditLogs: Array<{ event: string }>;
+    };
+
+    expect(output.branch).toMatchObject({
+      status: "sunset",
+      rolloutPercentage: 0
+    });
+    expect(output.policyAuditLog.event).toBe("policy_allowed");
+    expect(output.auditLog.event).toBe("branch_sunset");
+    expect(state.auditLogs.map((log) => log.event)).toEqual([
+      "policy_allowed",
+      "branch_sunset"
+    ]);
+  });
+
   it("requires a rollout percentage for local branch rollout", async () => {
     const io = createTestIo();
 

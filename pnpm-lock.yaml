@@ -171,6 +171,12 @@ importers:
       '@evofork/branch-registry':
         specifier: workspace:*
         version: link:../branch-registry
+      '@evofork/manifest-parser':
+        specifier: workspace:*
+        version: link:../../packages/manifest-parser
+      '@evofork/policy-engine':
+        specifier: workspace:*
+        version: link:../policy-engine
       '@evofork/router':
         specifier: workspace:*
         version: link:../router

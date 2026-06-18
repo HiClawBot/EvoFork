@@ -9,6 +9,7 @@ import {
   approveLocalBranch,
   createLocalBranch,
   emptyLocalDemoState,
+  promoteLocalBranch,
   readLocalDemoState,
   recordLocalBranchAuditLog,
   revertLocalBranch,
@@ -79,11 +80,9 @@ describe(serviceId, () => {
     expect(canary.status).toBe("canary");
     expect(canary.rolloutPercentage).toBe(10);
 
-    const active = await registry.rollout(created.id, {
-      percentage: 100,
-      actor: "maintainer"
-    });
+    const active = await registry.promote(created.id, { actor: "maintainer" });
     expect(active.status).toBe("active");
+    expect(active.rolloutPercentage).toBe(100);
 
     const reverted = await registry.revert(created.id, {
       reason: "guardrail increased",
@@ -111,6 +110,7 @@ describe(serviceId, () => {
     await expect(
       registry.rollout(created.id, { percentage: 10 })
     ).rejects.toBeInstanceOf(BranchRegistryError);
+    await expect(registry.promote(created.id)).rejects.toBeInstanceOf(BranchRegistryError);
   });
 
   it("filters branches by app, surface, and status", async () => {
@@ -188,6 +188,17 @@ describe(serviceId, () => {
       rolloutPercentage: 25
     });
 
+    const promoted = promoteLocalBranch(
+      state,
+      created.branch.id,
+      "maintainer",
+      "2026-06-18T00:02:30.000Z"
+    );
+    expect(promoted.branch).toMatchObject({
+      status: "active",
+      rolloutPercentage: 100
+    });
+
     const reverted = revertLocalBranch(
       state,
       created.branch.id,
@@ -204,6 +215,7 @@ describe(serviceId, () => {
       "branch_created",
       "branch_approved",
       "branch_rollout_changed",
+      "branch_promoted",
       "branch_reverted"
     ]);
   });
@@ -246,6 +258,34 @@ describe(serviceId, () => {
       "branch_created",
       "policy_allowed"
     ]);
+  });
+
+  it("records explicit registry audit events", async () => {
+    const registry = new InMemoryBranchRegistry({
+      idGenerator: createIdGenerator("br"),
+      clock: fixedClock
+    });
+    const branch = await registry.create({
+      appId: "demo-saas",
+      surfaceId: "pricing.hero",
+      branchName: "pricing.hero.local.v1"
+    });
+
+    const auditLog = await registry.recordAudit(branch.id, {
+      actor: "maintainer",
+      event: "policy_allowed",
+      payload: {
+        action: "promote"
+      }
+    });
+
+    expect(auditLog).toMatchObject({
+      event: "policy_allowed",
+      resourceId: branch.id,
+      payload: {
+        action: "promote"
+      }
+    });
   });
 
   it("reads and writes local demo branch state files", async () => {
