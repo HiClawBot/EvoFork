@@ -1,10 +1,15 @@
-# EvoFork API Specification v0.1
+# EvoFork API Specification v0.4
 
 Base path:
 
 ```text
 /v1
 ```
+
+When the API server is configured with a manifest, request `appId` must match
+`manifest.app.id`, and `surfaceId` must exist in that manifest. Mismatches return
+`400` with `error: "manifest_app_mismatch"` or `404` with
+`error: "manifest_surface_not_found"`.
 
 ## Health
 
@@ -75,7 +80,7 @@ Convenience endpoint for user feedback.
 
 ## Insights and RFCs
 
-In v0.1 Developer Preview, RFC generation and PR preparation are exposed through
+In the developer preview, RFC generation and PR preparation are exposed through
 the CLI and local Admin Console rather than public API server routes.
 
 ```bash

@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.4.0 - Multi-App Workspace Hardening
+
+Local workspaces can now track multiple EvoFork apps more explicitly.
+
+### Added
+
+- Local state `apps` workspace index with backward compatibility for older
+  top-level `appId` demo state files.
+- Branch Registry helpers for listing and upserting local workspace apps.
+- CLI command `evo workspace apps` and `evo branch list --app <appId>`.
+- API manifest scope checks that reject mismatched `appId` or unknown
+  `surfaceId` when a server is configured with a manifest.
+- Database migration `0002_workspace_metadata.sql` and `evofork_meta` schema
+  metadata table.
+- Bilingual Multi-App Workspace documentation.
+- Tests for local multi-app state, workspace CLI output, API manifest scope, and
+  DB metadata migration.
+
+### Changed
+
+- README, API spec, database docs, data model docs, docs index, and release
+  checklist document local multi-app workspace behavior.
+- Workspace package versions are bumped to `0.4.0`.
+
+### Notes
+
+This is local workspace hardening, not an enterprise permissions system. The
+default demo remains credential-free and still uses in-memory or JSON-backed
+state by default.
+
 ## v0.3.5 - Argo Rollouts Dry-Run Adapter
 
 Argo Rollouts planning is now available as a local dry-run adapter.

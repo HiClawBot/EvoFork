@@ -69,6 +69,52 @@ describe(serviceId, () => {
     }
   });
 
+  it("rejects requests outside the configured manifest app scope", async () => {
+    const { app } = await createTestServer({ manifest: testManifest });
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/feedback",
+        payload: {
+          appId: "other-app",
+          surface: "pricing.hero",
+          text: "This should not be stored in the demo manifest scope."
+        }
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        error: "manifest_app_mismatch"
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("rejects branch creation for surfaces outside the configured manifest", async () => {
+    const { app } = await createTestServer({ manifest: testManifest });
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/branches",
+        payload: {
+          appId: "demo-saas",
+          surfaceId: "billing.checkout",
+          branchName: "billing.checkout.local.v1"
+        }
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toMatchObject({
+        error: "manifest_surface_not_found"
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it("creates generic signals", async () => {
     const { app } = await createTestServer();
 

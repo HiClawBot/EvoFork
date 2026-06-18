@@ -1,9 +1,13 @@
 # EvoFork Data Model
 
-The canonical v0.1 PostgreSQL preview schema is implemented in
+The canonical PostgreSQL preview schema is implemented in
 `packages/db/src/index.ts` with the initial SQL migration in
-`packages/db/migrations/0001_initial.sql`. The API server still defaults to
-in-memory repositories in v0.1 so the local demo can run without PostgreSQL.
+`packages/db/migrations/0001_initial.sql` and workspace metadata migration in
+`packages/db/migrations/0002_workspace_metadata.sql`. The API server still
+defaults to in-memory repositories so the local demo can run without PostgreSQL.
+
+Most records carry `app_id`. This keeps feedback, RFCs, branches, exposures,
+audit logs, and eval reports scoped to a specific EvoFork app.
 
 ## apps
 
@@ -126,3 +130,15 @@ create table eval_reports (
   created_at timestamptz not null default now()
 );
 ```
+
+## evofork_meta
+
+```sql
+create table evofork_meta (
+  key text primary key,
+  value jsonb not null default '{}',
+  updated_at timestamptz not null default now()
+);
+```
+
+`evofork_meta` stores migration/schema metadata such as the local schema version.

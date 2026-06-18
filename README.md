@@ -52,13 +52,13 @@ It does not:
 ## Status
 
 ```text
-Project status: v0.3 Developer Preview
+Project status: v0.4 Developer Preview
 Primary language: TypeScript
 Initial target: Next.js + Node.js applications
 License: Apache-2.0
 ```
 
-v0.3 is a local-first developer preview. It includes the minimal trusted loop,
+v0.4 is a local-first developer preview. It includes the minimal trusted loop,
 initial governance policy checks, and deterministic canary observation, with
 mock/local adapters so the demo runs without production LLM, GitHub, database,
 or deployment credentials.
@@ -276,6 +276,7 @@ Manage local branch state without production credentials:
 
 ```bash
 pnpm evo branch list
+pnpm evo workspace apps --json
 pnpm evo branch create --surface pricing.hero --branch pricing.hero.local-draft.v1
 pnpm evo branch approve br_local_001
 pnpm evo branch rollout br_local_001 --percentage 25 --approved
@@ -288,6 +289,10 @@ Rollout, promote, and sunset commands are checked against manifest policy before
 state changes. Promotion also requires Eval Gate evidence via a passed branch
 eval report or `--eval-passed`. Blocked actions write local audit entries and
 leave branch state unchanged.
+
+Local state now keeps an `apps` workspace index, so multiple EvoFork-enabled apps
+can share a developer workspace while branch and audit records stay app-scoped.
+See [Multi-App Workspace](./docs/MULTI_APP_WORKSPACE.md).
 
 Check governance policy decisions:
 
@@ -330,7 +335,7 @@ pnpm evo db migrate \
   --database-url "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork"
 ```
 
-The database schema is available in `@evofork/db`, but the v0.3 demo still runs
+The database schema is available in `@evofork/db`, but the v0.4 demo still runs
 without a database by default.
 
 ---
@@ -399,7 +404,7 @@ POST /v1/events
 ```
 
 RFC and PR generation are available through the CLI and the local admin console
-in v0.3. Production GitHub writes are intentionally behind adapter boundaries
+in v0.4. Production GitHub writes are intentionally behind adapter boundaries
 and are not invoked by default.
 
 ---
@@ -530,13 +535,13 @@ EvoFork 不是黑盒自动写码系统。
 ## 状态
 
 ```text
-项目状态：v0.3 Developer Preview
+项目状态：v0.4 Developer Preview
 主要语言：TypeScript
 初始目标：Next.js + Node.js 应用
 许可证：Apache-2.0
 ```
 
-v0.3 是本地优先的开发者预览版，包含最小可信闭环、初始治理 policy 校验和
+v0.4 是本地优先的开发者预览版，包含最小可信闭环、初始治理 policy 校验和
 确定性的 canary 观测。它使用 mock/local adapter，因此本地演示不需要生产
 LLM、GitHub、数据库或部署凭证。
 
@@ -713,6 +718,7 @@ Kubernetes、执行 `kubectl`，也不会改变生产流量。详见
 
 ```bash
 pnpm evo branch list
+pnpm evo workspace apps --json
 pnpm evo branch create --surface pricing.hero --branch pricing.hero.local-draft.v1
 pnpm evo branch approve br_local_001
 pnpm evo branch rollout br_local_001 --percentage 25 --approved
@@ -724,6 +730,10 @@ pnpm evo branch revert br_demo_seed --reason "local rollback"
 rollout、promote 和 sunset 命令会在修改本地 state 前执行 manifest policy
 校验。promotion 还需要通过 branch eval report 或 `--eval-passed` 提供 Eval
 Gate 通过证明。被阻止的动作会写入本地 audit 记录，并保持 branch state 不变。
+
+本地 state 现在包含 `apps` workspace 索引，因此多个接入 EvoFork 的 app 可以共享同一个
+developer workspace，同时 branch 和 audit 记录仍按 app 隔离。详见
+[Multi-App Workspace](./docs/MULTI_APP_WORKSPACE.md)。
 
 检查治理 policy 决策：
 
@@ -764,7 +774,7 @@ pnpm evo db migrate \
   --database-url "postgres://evofork:evofork_local_only@127.0.0.1:5432/evofork"
 ```
 
-数据库 schema 位于 `@evofork/db`，但 v0.3 demo 默认仍不需要数据库。
+数据库 schema 位于 `@evofork/db`，但 v0.4 demo 默认仍不需要数据库。
 
 ---
 
@@ -787,7 +797,7 @@ POST /v1/variants/resolve
 POST /v1/events
 ```
 
-v0.3 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 GitHub 写入被放在 adapter 边界之后，默认不会调用。
+v0.4 中，RFC 和 PR 生成通过 CLI 与本地 Admin Console 暴露。生产 GitHub 写入被放在 adapter 边界之后，默认不会调用。
 
 ---
 

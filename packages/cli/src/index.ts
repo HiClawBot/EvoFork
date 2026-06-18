@@ -11,6 +11,8 @@ import {
   createDemoSeedAuditLogs,
   createLocalBranch,
   defaultLocalDemoStatePath,
+  emptyLocalDemoState,
+  listLocalApps,
   readLocalDemoState,
   readOrCreateLocalDemoState,
   promoteLocalBranch,
@@ -18,6 +20,7 @@ import {
   revertLocalBranch,
   rolloutLocalBranch,
   sunsetLocalBranch,
+  upsertLocalApp,
   writeLocalDemoState,
   type AuditLogRecord,
   type BranchRecord,
@@ -69,6 +72,7 @@ const defaultManifestPath = "evo.manifest.yaml";
 const valueOptionNames = new Set([
   "actor",
   "allow-risk",
+  "app",
   "branch",
   "branch-id",
   "branches",
@@ -172,6 +176,10 @@ export async function runCli(
 
     if (namespace === "argo" && command === "plan") {
       return await argoPlanCommand(parsedArgs.manifestPath, commandArgs, io);
+    }
+
+    if (namespace === "workspace" && command === "apps") {
+      return await workspaceAppsCommand(commandArgs, io);
     }
 
     if (namespace === "branch" && command === "list") {
@@ -318,7 +326,8 @@ function printHelp(io: CliIO): void {
   io.stdout.log("  evo observe input --surface <surfaceId> --branch-id <id> [--state <path>] [--json]");
   io.stdout.log("  evo observe fixtures [--json]");
   io.stdout.log("  evo argo plan --surface <surfaceId> --branch-id <id> [--weight <0-100>] [--approved] [--json]");
-  io.stdout.log("  evo branch list [--state <path>] [--surface <surfaceId>] [--status <status>] [--json]");
+  io.stdout.log("  evo workspace apps [--state <path>] [--json]");
+  io.stdout.log("  evo branch list [--state <path>] [--app <appId>] [--surface <surfaceId>] [--status <status>] [--json]");
   io.stdout.log("  evo branch create --surface <surfaceId> [--branch <name>] [--segment <key=value>] [--state <path>] [--json]");
   io.stdout.log("  evo branch approve <branchId> [--state <path>] [--actor <name>] [--json]");
   io.stdout.log("  evo branch rollout <branchId> --percentage <0-100> [--state <path>] [--actor <name>] [--approved] [--json]");
@@ -551,18 +560,25 @@ async function demoSeedCommand(
   const outputPath = readOption(args, "output") ?? defaultLocalDemoStatePath;
   const generatedAt = new Date().toISOString();
   const branch = createDemoBranch(manifest.app.id, surfaceId, generatedAt);
-  const seed: LocalDemoState = {
-    path: outputPath,
-    data: {
-      appId: manifest.app.id,
-      surfaceId,
-      generatedAt,
-      metricEvents: createDemoMetricEvents(manifest.app.id, surfaceId, branch.id)
+  const seed = emptyLocalDemoState(outputPath, {
+    appId: manifest.app.id,
+    surfaceId,
+    generatedAt,
+    metricEvents: createDemoMetricEvents(manifest.app.id, surfaceId, branch.id)
+  });
+  upsertLocalApp(
+    seed,
+    {
+      id: manifest.app.id,
+      name: manifest.app.name,
+      defaultBranch: manifest.app.default_branch,
+      manifestPath
     },
-    signals: createDemoSignals(manifest.app.id, surfaceId, count),
-    branches: [branch],
-    auditLogs: createDemoSeedAuditLogs(branch, generatedAt)
-  };
+    generatedAt
+  );
+  seed.signals = createDemoSignals(manifest.app.id, surfaceId, count);
+  seed.branches = [branch];
+  seed.auditLogs = createDemoSeedAuditLogs(branch, generatedAt);
 
   await writeLocalDemoState(seed);
 
@@ -574,6 +590,7 @@ async function demoSeedCommand(
           ...seed.data,
           signals: seed.signals,
           metricEvents: seed.data.metricEvents,
+          apps: seed.apps,
           branches: seed.branches,
           auditLogs: seed.auditLogs
         },
@@ -860,9 +877,11 @@ function printArgoPlan(args: string[], io: CliIO, plan: ArgoRolloutDryRunPlan): 
 
 async function branchListCommand(args: string[], io: CliIO): Promise<number> {
   const state = await readLocalDemoState(readBranchStatePath(args));
+  const appId = readOption(args, "app");
   const surfaceId = readOption(args, "surface");
   const status = readOption(args, "status");
   const branches = state.branches
+    .filter((branch) => !appId || branch.appId === appId)
     .filter((branch) => !surfaceId || branch.surfaceId === surfaceId)
     .filter((branch) => !status || branch.status === status);
 
@@ -895,6 +914,36 @@ async function branchListCommand(args: string[], io: CliIO): Promise<number> {
   return 0;
 }
 
+async function workspaceAppsCommand(args: string[], io: CliIO): Promise<number> {
+  const state = await readLocalDemoState(readBranchStatePath(args));
+  const apps = listLocalApps(state);
+
+  if (hasFlag(args, "json")) {
+    io.stdout.log(
+      JSON.stringify(
+        {
+          statePath: state.path,
+          apps
+        },
+        null,
+        2
+      )
+    );
+    return 0;
+  }
+
+  if (apps.length === 0) {
+    io.stdout.log(`No local apps found in ${state.path}`);
+    return 0;
+  }
+
+  for (const app of apps) {
+    io.stdout.log(`${app.id}\t${app.defaultBranch}\t${app.manifestPath ?? ""}`);
+  }
+
+  return 0;
+}
+
 async function branchCreateCommand(
   manifestPath: string,
   args: string[],
@@ -917,6 +966,12 @@ async function branchCreateCommand(
   const state = await readOrCreateLocalDemoState(statePath, {
     appId: manifest.app.id,
     surfaceId
+  });
+  upsertLocalApp(state, {
+    id: manifest.app.id,
+    name: manifest.app.name,
+    defaultBranch: manifest.app.default_branch,
+    manifestPath
   });
   const actor = readOption(args, "actor") ?? "local-maintainer";
   const branchName = readOption(args, "branch") ?? `${surfaceId}.local-draft.v1`;

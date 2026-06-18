@@ -3,6 +3,7 @@
 - [Architecture](./ARCHITECTURE.md)
 - [Quickstart](./QUICKSTART.md)
 - [Manifest Spec](./MANIFEST_SPEC.md)
+- [Multi-App Workspace](./MULTI_APP_WORKSPACE.md)
 - [API Spec](./API_SPEC.md)
 - [Data Model](./DATA_MODEL.md)
 - [Eval Gate](./EVAL_GATE.md)

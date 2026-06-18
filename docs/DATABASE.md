@@ -2,7 +2,7 @@
 
 ## English
 
-EvoFork v0.1 runs locally with in-memory and JSON-backed repositories by default. The
+EvoFork v0.4 runs locally with in-memory and JSON-backed repositories by default. The
 database package is a preview of the PostgreSQL persistence layer that future API
 repositories will use.
 
@@ -11,6 +11,7 @@ The schema lives in:
 ```text
 packages/db/src/index.ts
 packages/db/migrations/0001_initial.sql
+packages/db/migrations/0002_workspace_metadata.sql
 ```
 
 Start a local PostgreSQL instance:
@@ -34,12 +35,15 @@ client tools before running non-dry-run migrations.
 The local password in `docker-compose.yml` is for development only. Do not reuse
 it in production or shared infrastructure.
 
-The API server still uses in-memory repositories by default in v0.1. This keeps
-the developer preview runnable without a database.
+The API server still uses in-memory repositories by default. This keeps the
+developer preview runnable without a database.
+
+v0.4.0 adds `evofork_meta` for schema metadata and keeps app-owned records
+scoped by `app_id`.
 
 ## 中文
 
-EvoFork v0.1 默认使用内存仓库和 JSON 本地状态运行。数据库包是 PostgreSQL
+EvoFork v0.4 默认使用内存仓库和 JSON 本地状态运行。数据库包是 PostgreSQL
 持久化层预览，后续 API repository 会基于它逐步落地。
 
 Schema 文件位于：
@@ -47,6 +51,7 @@ Schema 文件位于：
 ```text
 packages/db/src/index.ts
 packages/db/migrations/0001_initial.sql
+packages/db/migrations/0002_workspace_metadata.sql
 ```
 
 启动本地 PostgreSQL：
@@ -69,4 +74,7 @@ PostgreSQL client tools。
 
 `docker-compose.yml` 中的本地密码只用于开发环境，不要在生产或共享基础设施中复用。
 
-v0.1 中 API server 默认仍使用内存仓库，这样开发者预览版无需数据库也可以运行。
+API server 默认仍使用内存仓库，这样开发者预览版无需数据库也可以运行。
+
+v0.4.0 新增 `evofork_meta` 用于 schema metadata，并继续通过 `app_id`
+保持 app 级数据隔离。

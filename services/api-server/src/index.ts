@@ -224,6 +224,7 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
       // TODO: add authentication middleware before any production deployment.
       v1.post("/signals", async (request, reply) => {
         const input = parseBody(signalSchema, request);
+        assertManifestScope(options.manifest, input.appId, input.surfaceId);
         const signal = await signalRepository.create({
           appId: input.appId,
           surfaceId: input.surfaceId,
@@ -243,6 +244,7 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
       v1.post("/feedback", async (request, reply) => {
         const input = parseBody(feedbackSchema, request);
         const surfaceId = input.surfaceId ?? input.surface;
+        assertManifestScope(options.manifest, input.appId, surfaceId);
         const signal = await signalRepository.create({
           appId: input.appId,
           surfaceId: surfaceId as string,
@@ -260,6 +262,7 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
 
       v1.post("/support-summaries", async (request, reply) => {
         const input = parseBody(supportSummarySchema, request);
+        assertManifestScope(options.manifest, input.appId, input.surfaceId);
         const signal = await signalRepository.create({
           appId: input.appId,
           surfaceId: input.surfaceId,
@@ -288,6 +291,7 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
 
       v1.post("/events", async (request, reply) => {
         const input = parseBody(eventSchema, request);
+        assertManifestScope(options.manifest, input.appId, input.surfaceId);
         const event = await metricEventRepository.create({
           appId: input.appId,
           event: input.event,
@@ -333,6 +337,7 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
 
       v1.post("/branches", async (request, reply) => {
         const input = parseBody(createBranchSchema, request);
+        assertManifestScope(options.manifest, input.appId, input.surfaceId);
         const branch = await branchRegistry.create(input);
 
         return reply.status(201).send({ branch });
@@ -374,6 +379,7 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
         const actor = input.actor ?? "maintainer";
         const branch = await requireApiBranch(branchRegistry, params.id);
         const manifest = requirePolicyManifest(options.manifest);
+        assertManifestScope(manifest, branch.appId, branch.surfaceId);
         const policyDecision = evaluatePolicy({
           manifest,
           surfaceId: branch.surfaceId,
@@ -445,6 +451,7 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
         const actor = input.actor ?? "maintainer";
         const branch = await requireApiBranch(branchRegistry, params.id);
         const manifest = requirePolicyManifest(options.manifest);
+        assertManifestScope(manifest, branch.appId, branch.surfaceId);
         const policyDecision = evaluatePolicy({
           manifest,
           surfaceId: branch.surfaceId,
@@ -478,6 +485,7 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
 
       v1.post("/variants/resolve", async (request, reply) => {
         const input = parseBody(resolveVariantSchema, request);
+        assertManifestScope(options.manifest, input.appId, input.surfaceId);
         const branches = await branchRegistry.list({
           appId: input.appId,
           surfaceId: input.surfaceId,
@@ -529,6 +537,31 @@ function requirePolicyManifest(manifest: EvoManifest | undefined): EvoManifest {
   }
 
   return manifest;
+}
+
+function assertManifestScope(
+  manifest: EvoManifest | undefined,
+  appId: string,
+  surfaceId: string | undefined
+): void {
+  if (!manifest) {
+    return;
+  }
+
+  if (manifest.app.id !== appId) {
+    throw new BranchRegistryError(
+      "manifest_app_mismatch",
+      `Request appId ${appId} does not match manifest app ${manifest.app.id}`
+    );
+  }
+
+  if (surfaceId && !manifest.surfaces.some((surface) => surface.id === surfaceId)) {
+    throw new BranchRegistryError(
+      "manifest_surface_not_found",
+      `Surface not found in manifest: ${surfaceId}`,
+      404
+    );
+  }
 }
 
 async function recordApiPolicyAudit(
