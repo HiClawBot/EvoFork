@@ -16,6 +16,7 @@ pnpm evo observe canary --fixture healthy --json
 pnpm evo demo seed
 pnpm evo observe input --surface pricing.hero --branch-id br_demo_seed --min-sample 10 --json > .evofork/canary.json
 pnpm evo observe canary --input .evofork/canary.json --json
+pnpm --filter @evofork/adapter-opentelemetry test
 pnpm evo branch create --surface pricing.hero --branch pricing.hero.release-check.v1 --state .evofork/release-branch.json
 pnpm evo branch approve br_local_001 --state .evofork/release-branch.json
 pnpm evo branch promote br_local_001 --approved --eval-passed --state .evofork/release-branch.json
@@ -54,6 +55,8 @@ Release notes:
   traffic or branch state.
 - Local metric events are developer-preview input data and are not exported to
   third-party telemetry systems by default.
+- The OpenTelemetry adapter is a local bridge only; it does not start a
+  collector or export telemetry by default.
 - Branch promotion and sunset remain governed local state changes with policy
   and audit records; they do not deploy or mutate production traffic directly.
 - `.env`, `.next`, `.turbo`, `dist`, and local `.evofork` state must not be committed.

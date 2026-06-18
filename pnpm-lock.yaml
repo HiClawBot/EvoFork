@@ -41,7 +41,11 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
 
-  adapters/opentelemetry: {}
+  adapters/opentelemetry:
+    dependencies:
+      '@evofork/rollout-observer':
+        specifier: workspace:*
+        version: link:../../services/rollout-observer
 
   apps/admin-console:
     dependencies:
