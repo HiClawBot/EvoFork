@@ -44,9 +44,11 @@ import { evaluatePolicy, type PolicyDecision } from "@evofork/policy-engine";
 import { resolveVariant, type RouterBranch } from "@evofork/router";
 import {
   analyzeCanary,
+  buildCanaryInputFromMetricEvents,
   getCanaryFixture,
   isCanaryFixtureId,
   listCanaryFixtures,
+  type CanaryMetricEventInput,
   type CanaryObservationInput
 } from "@evofork/rollout-observer";
 
@@ -70,10 +72,15 @@ const valueOptionNames = new Set([
   "count",
   "database-url",
   "diff",
+  "endpoint",
+  "events",
+  "event",
   "file",
   "fixture",
   "input",
+  "min-sample",
   "migrations-dir",
+  "observed-at",
   "output",
   "percentage",
   "priority",
@@ -139,6 +146,10 @@ export async function runCli(
 
     if (namespace === "observe" && command === "canary") {
       return await observeCanaryCommand(parsedArgs.manifestPath, commandArgs, io);
+    }
+
+    if (namespace === "observe" && command === "input") {
+      return await observeInputCommand(parsedArgs.manifestPath, commandArgs, io);
     }
 
     if (namespace === "observe" && command === "fixtures") {
@@ -282,6 +293,7 @@ function printHelp(io: CliIO): void {
   io.stdout.log("  evo demo seed [--surface <surfaceId>] [--count <n>] [--output <path>] [--json]");
   io.stdout.log("  evo route test <surfaceId> --user <userId> [--segment <key=value>] [--rollout <0-100>] [--json]");
   io.stdout.log("  evo observe canary [--fixture <id>] [--input <path>] [--json]");
+  io.stdout.log("  evo observe input --surface <surfaceId> --branch-id <id> [--state <path>] [--json]");
   io.stdout.log("  evo observe fixtures [--json]");
   io.stdout.log("  evo branch list [--state <path>] [--surface <surfaceId>] [--status <status>] [--json]");
   io.stdout.log("  evo branch create --surface <surfaceId> [--branch <name>] [--segment <key=value>] [--state <path>] [--json]");
@@ -520,7 +532,8 @@ async function demoSeedCommand(
     data: {
       appId: manifest.app.id,
       surfaceId,
-      generatedAt
+      generatedAt,
+      metricEvents: createDemoMetricEvents(manifest.app.id, surfaceId, branch.id)
     },
     signals: createDemoSignals(manifest.app.id, surfaceId, count),
     branches: [branch],
@@ -536,6 +549,7 @@ async function demoSeedCommand(
           outputPath,
           ...seed.data,
           signals: seed.signals,
+          metricEvents: seed.data.metricEvents,
           branches: seed.branches,
           auditLogs: seed.auditLogs
         },
@@ -547,6 +561,7 @@ async function demoSeedCommand(
   }
 
   io.stdout.log(`Seeded ${seed.signals.length} demo signals for ${surfaceId}`);
+  io.stdout.log(`Seeded ${readMetricEventsFromState(seed).length} demo metric events`);
   io.stdout.log(`Output: ${outputPath}`);
   io.stdout.log("Next: pnpm evo insight generate --surface pricing.hero");
   return 0;
@@ -657,6 +672,62 @@ async function observeCanaryCommand(
 
   io.stdout.log(`Audit: ${report.audit.event}`);
   return report.recommendation === "rollback" ? 1 : 0;
+}
+
+async function observeInputCommand(
+  manifestPath: string,
+  args: string[],
+  io: CliIO
+): Promise<number> {
+  const manifest = await loadManifest(manifestPath);
+  const surfaceId =
+    readOption(args, "surface") ?? args.find((arg) => !arg.startsWith("--"));
+
+  if (!surfaceId) {
+    io.stderr.error("Missing required surfaceId");
+    return 1;
+  }
+
+  const surface = findSurface(manifest, surfaceId);
+
+  if (!surface) {
+    io.stderr.error(`Surface not found: ${surfaceId}`);
+    return 1;
+  }
+
+  const branchId = readOption(args, "branch-id") ?? "br_demo_seed";
+  const rolloutPercentage = parseRolloutPercentage(readOption(args, "rollout") ?? "25");
+  const minSampleSize = parseOptionalInteger(readOption(args, "min-sample"));
+  const events = await readMetricEvents(args, manifest.app.id, surfaceId);
+  const input = buildCanaryInputFromMetricEvents({
+    appId: manifest.app.id,
+    surfaceId,
+    branchId,
+    ...(readOption(args, "branch") ? { branchName: readOption(args, "branch") } : {}),
+    rolloutPercentage,
+    events,
+    ...(minSampleSize !== undefined ? { minSampleSize } : {}),
+    ...(readOption(args, "observed-at") ? { observedAt: readOption(args, "observed-at") } : {})
+  });
+
+  if (hasFlag(args, "json")) {
+    io.stdout.log(JSON.stringify(input, null, 2));
+    return 0;
+  }
+
+  io.stdout.log(`Canary input: ${input.surfaceId}`);
+  io.stdout.log(`Branch: ${input.branchName ?? input.branchId}`);
+  io.stdout.log(`Rollout: ${input.rolloutPercentage}%`);
+  io.stdout.log(`Sample: ${input.sampleSize}${input.minSampleSize ? `/${input.minSampleSize}` : ""}`);
+  io.stdout.log("Metrics:");
+
+  for (const metric of input.metrics) {
+    io.stdout.log(
+      `- ${metric.name}\tbaseline=${metric.baseline}\tcanary=${metric.canary}\tdirection=${metric.direction}`
+    );
+  }
+
+  return 0;
 }
 
 function observeFixturesCommand(args: string[], io: CliIO): number {
@@ -1017,6 +1088,97 @@ async function readCanaryObservationInput(args: string[]): Promise<CanaryObserva
   }
 
   return getCanaryFixture(fixtureId);
+}
+
+async function readMetricEvents(
+  args: string[],
+  appId: string,
+  surfaceId: string
+): Promise<CanaryMetricEventInput[]> {
+  const eventsPath = readOption(args, "events");
+
+  if (eventsPath) {
+    return parseMetricEvents(JSON.parse(await readFile(eventsPath, "utf8")));
+  }
+
+  const endpoint = readOption(args, "endpoint");
+
+  if (endpoint) {
+    return await fetchMetricEvents(endpoint, appId, surfaceId, readOption(args, "event"));
+  }
+
+  const state = await readLocalDemoState(readBranchStatePath(args));
+  const events = readMetricEventsFromState(state);
+
+  if (events.length === 0) {
+    throw new Error(
+      `No metric events found in ${state.path}. Run evo demo seed or pass --events/--endpoint.`
+    );
+  }
+
+  return events;
+}
+
+async function fetchMetricEvents(
+  endpoint: string,
+  appId: string,
+  surfaceId: string,
+  eventName = "metric_observed"
+): Promise<CanaryMetricEventInput[]> {
+  if (!globalThis.fetch) {
+    throw new Error("Fetching metric events requires a global fetch implementation");
+  }
+
+  const base = endpoint.endsWith("/") ? endpoint : `${endpoint}/`;
+  const url = new URL("v1/events", base);
+  url.searchParams.set("appId", appId);
+  url.searchParams.set("surfaceId", surfaceId);
+  url.searchParams.set("event", eventName);
+
+  const response = await globalThis.fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Metric event request failed with status ${response.status}`);
+  }
+
+  return parseMetricEvents(await response.json());
+}
+
+function readMetricEventsFromState(state: LocalDemoState): CanaryMetricEventInput[] {
+  return parseMetricEvents({
+    events: state.data.metricEvents
+  });
+}
+
+function parseMetricEvents(value: unknown): CanaryMetricEventInput[] {
+  const events = Array.isArray(value)
+    ? value
+    : isRecord(value) && Array.isArray(value.events)
+      ? value.events
+      : isRecord(value) && Array.isArray(value.metricEvents)
+        ? value.metricEvents
+        : undefined;
+
+  if (!events) {
+    return [];
+  }
+
+  return events.flatMap((event): CanaryMetricEventInput[] =>
+    isMetricEvent(event) ? [event] : []
+  );
+}
+
+function isMetricEvent(value: unknown): value is CanaryMetricEventInput {
+  return (
+    isRecord(value) &&
+    typeof value.appId === "string" &&
+    typeof value.event === "string" &&
+    (value.surfaceId === undefined || typeof value.surfaceId === "string") &&
+    (value.branchId === undefined || value.branchId === null || typeof value.branchId === "string") &&
+    (value.userId === undefined || typeof value.userId === "string") &&
+    (value.sessionId === undefined || typeof value.sessionId === "string") &&
+    (value.properties === undefined || isRecord(value.properties))
+  );
 }
 
 function parseCanaryObservationInput(value: unknown): CanaryObservationInput {
@@ -1483,6 +1645,87 @@ function createDemoSignals(appId: string, surfaceId: string, count: number) {
     piiRemoved: true,
     llmEligible: true
   }));
+}
+
+function createDemoMetricEvents(
+  appId: string,
+  surfaceId: string,
+  branchId: string
+): CanaryMetricEventInput[] {
+  const events: CanaryMetricEventInput[] = [];
+
+  for (let index = 0; index < 10; index += 1) {
+    events.push(
+      createDemoMetricEvent({
+        appId,
+        surfaceId,
+        sessionId: `baseline_${index + 1}`,
+        branchId: null,
+        metric: "pricing_to_signup_conversion",
+        value: index < 5 ? 1 : 0,
+        direction: "increase",
+        cohort: "baseline"
+      }),
+      createDemoMetricEvent({
+        appId,
+        surfaceId,
+        sessionId: `baseline_${index + 1}`,
+        branchId: null,
+        metric: "page_error_rate",
+        value: index === 0 ? 1 : 0,
+        direction: "decrease",
+        cohort: "baseline"
+      }),
+      createDemoMetricEvent({
+        appId,
+        surfaceId,
+        sessionId: `canary_${index + 1}`,
+        branchId,
+        metric: "pricing_to_signup_conversion",
+        value: index < 7 ? 1 : 0,
+        direction: "increase",
+        cohort: "canary"
+      }),
+      createDemoMetricEvent({
+        appId,
+        surfaceId,
+        sessionId: `canary_${index + 1}`,
+        branchId,
+        metric: "page_error_rate",
+        value: 0,
+        direction: "decrease",
+        cohort: "canary"
+      })
+    );
+  }
+
+  return events;
+}
+
+function createDemoMetricEvent(input: {
+  appId: string;
+  surfaceId: string;
+  sessionId: string;
+  branchId: string | null;
+  metric: string;
+  value: number;
+  direction: "increase" | "decrease";
+  cohort: "baseline" | "canary";
+}): CanaryMetricEventInput {
+  return {
+    appId: input.appId,
+    event: "metric_observed",
+    surfaceId: input.surfaceId,
+    branchId: input.branchId,
+    sessionId: input.sessionId,
+    properties: {
+      metric: input.metric,
+      value: input.value,
+      direction: input.direction,
+      cohort: input.cohort,
+      source: "local_demo_seed"
+    }
+  };
 }
 
 function isRouterBranch(value: unknown): value is RouterBranch {

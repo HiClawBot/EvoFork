@@ -238,13 +238,21 @@ describe("@evofork/cli", () => {
     const seed = JSON.parse(await readFile(outputPath, "utf8")) as {
       surfaceId: string;
       signals: Array<{ id: string; piiRemoved: boolean; llmEligible: boolean }>;
+      metricEvents: Array<{ event: string; surfaceId: string; branchId: string | null }>;
       branches: Array<{ id: string; branchName: string; status: string }>;
       auditLogs: Array<{ event: string; resourceId: string }>;
     };
 
     expect(io.output()).toContain("Seeded 3 demo signals");
+    expect(io.output()).toContain("Seeded 40 demo metric events");
     expect(seed.surfaceId).toBe("pricing.hero");
     expect(seed.signals).toHaveLength(3);
+    expect(seed.metricEvents).toHaveLength(40);
+    expect(seed.metricEvents[0]).toMatchObject({
+      event: "metric_observed",
+      surfaceId: "pricing.hero",
+      branchId: null
+    });
     expect(seed.signals[0]).toMatchObject({
       id: "demo_signal_001",
       piiRemoved: true,
@@ -411,6 +419,84 @@ describe("@evofork/cli", () => {
     expect(report.branchName).toBe("pricing.hero.custom.v1");
     expect(report.recommendation).toBe("hold");
     expect(report.reasons.join("\n")).toContain("below minimum");
+  });
+
+  it("builds canary observation input from local metric events", async () => {
+    const seedIo = createTestIo();
+    const inputIo = createTestIo();
+    const canaryIo = createTestIo();
+    const workdir = await mkdtemp(join(tmpdir(), "evofork-observe-input-"));
+    const seedPath = join(workdir, "seed.json");
+    const inputPath = join(workdir, "canary.json");
+
+    await expect(
+      runCli(
+        [
+          "demo",
+          "seed",
+          "--surface",
+          "pricing.hero",
+          "--output",
+          seedPath,
+          "--manifest",
+          manifestPath
+        ],
+        seedIo
+      )
+    ).resolves.toBe(0);
+
+    await expect(
+      runCli(
+        [
+          "observe",
+          "input",
+          "--surface",
+          "pricing.hero",
+          "--branch-id",
+          "br_demo_seed",
+          "--branch",
+          "pricing.hero.new-user-clarity.v1",
+          "--rollout",
+          "25",
+          "--min-sample",
+          "10",
+          "--state",
+          seedPath,
+          "--manifest",
+          manifestPath,
+          "--json"
+        ],
+        inputIo
+      )
+    ).resolves.toBe(0);
+
+    const input = JSON.parse(inputIo.output()) as {
+      sampleSize: number;
+      metrics: Array<{ name: string; baseline: number; canary: number }>;
+    };
+    expect(input.sampleSize).toBe(10);
+    expect(input.metrics).toEqual([
+      {
+        name: "pricing_to_signup_conversion",
+        baseline: 0.5,
+        canary: 0.7,
+        direction: "increase"
+      },
+      {
+        name: "page_error_rate",
+        baseline: 0.1,
+        canary: 0,
+        direction: "decrease"
+      }
+    ]);
+
+    await writeFile(inputPath, inputIo.output(), "utf8");
+    await expect(
+      runCli(["observe", "canary", "--input", inputPath, "--manifest", manifestPath, "--json"], canaryIo)
+    ).resolves.toBe(0);
+
+    const report = JSON.parse(canaryIo.output()) as { recommendation: string };
+    expect(report.recommendation).toBe("promote");
   });
 
   it("tests route matching from a branch fixture", async () => {

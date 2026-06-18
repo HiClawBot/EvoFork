@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.3.2 - Local Metrics Observer Input
+
+Rollout Observer can now build canary observation input from local metric events.
+
+### Added
+
+- `@evofork/signal-hub` now includes an in-memory metric event repository.
+- API server `POST /v1/events` stores typed local metric events and
+  `GET /v1/events` returns them for local tooling.
+- SDK `track` supports an object form with `surfaceId`, `branchId`, `userId`,
+  `sessionId`, and properties for local metric events.
+- Rollout Observer exposes `buildCanaryInputFromMetricEvents`.
+- CLI `evo observe input` builds canary input JSON from local seed state,
+  event JSON files, or a local API endpoint.
+- `evo demo seed` now writes deterministic demo metric events.
+
+### Changed
+
+- README, Quickstart, API spec, and Rollout Observer docs describe the local
+  metric-event-to-canary-input flow.
+- Workspace package versions are bumped to `0.3.2`.
+
+### Notes
+
+Metric events remain local developer-preview data. This release does not add
+third-party telemetry export, automatic deployment, branch mutation, or traffic
+changes.
+
 ## v0.3.1 - Admin Rollout Observer Visibility
 
 The Admin Console now shows Rollout Observer recommendations in the local

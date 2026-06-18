@@ -56,6 +56,31 @@ export type CanaryObservationReport = {
   };
 };
 
+export type CanaryMetricEventInput = {
+  id?: string;
+  appId: string;
+  event: string;
+  surfaceId?: string;
+  branchId?: string | null;
+  userId?: string;
+  sessionId?: string;
+  properties?: Record<string, unknown>;
+  createdAt?: string;
+};
+
+export type BuildCanaryInputFromMetricEventsInput = {
+  appId: string;
+  surfaceId: string;
+  branchId: string;
+  branchName?: string;
+  rolloutPercentage: number;
+  events: CanaryMetricEventInput[];
+  minSampleSize?: number;
+  observedAt?: string;
+  metricEventName?: string;
+  metricDirections?: Record<string, MetricDirection>;
+};
+
 export type CanaryFixtureId = "healthy" | "regression" | "insufficient";
 
 const defaultMinSampleSize = 100;
@@ -209,6 +234,133 @@ export function isCanaryFixtureId(value: string): value is CanaryFixtureId {
   return value === "healthy" || value === "regression" || value === "insufficient";
 }
 
+export function buildCanaryInputFromMetricEvents(
+  input: BuildCanaryInputFromMetricEventsInput
+): CanaryObservationInput {
+  if (!input.appId || !input.surfaceId || !input.branchId) {
+    throw new Error("appId, surfaceId, and branchId are required");
+  }
+
+  if (
+    !Number.isInteger(input.rolloutPercentage) ||
+    input.rolloutPercentage < 0 ||
+    input.rolloutPercentage > 100
+  ) {
+    throw new Error("rolloutPercentage must be an integer from 0 to 100");
+  }
+
+  if (!Array.isArray(input.events)) {
+    throw new Error("events must be an array");
+  }
+
+  const metricEventName = input.metricEventName ?? "metric_observed";
+  const metrics = new Map<
+    string,
+    {
+      direction: MetricDirection;
+      baselineSum: number;
+      baselineCount: number;
+      canarySum: number;
+      canaryCount: number;
+      warnRegressionPercent?: number;
+      failRegressionPercent?: number;
+    }
+  >();
+  const canarySamples = new Set<string>();
+  let anonymousCanarySamples = 0;
+
+  for (const event of input.events) {
+    if (event.appId !== input.appId || event.surfaceId !== input.surfaceId) {
+      continue;
+    }
+
+    if (event.event !== metricEventName) {
+      continue;
+    }
+
+    const properties = event.properties ?? {};
+    const metricName = readMetricName(properties);
+    const value = readMetricValue(properties);
+    const cohort = readMetricCohort(event, input.branchId);
+
+    if (!metricName || value === undefined || !cohort) {
+      continue;
+    }
+
+    const direction =
+      input.metricDirections?.[metricName] ?? readMetricDirection(properties) ?? "increase";
+    const aggregate =
+      metrics.get(metricName) ??
+      {
+        direction,
+        baselineSum: 0,
+        baselineCount: 0,
+        canarySum: 0,
+        canaryCount: 0,
+        warnRegressionPercent: readOptionalNumber(properties.warnRegressionPercent),
+        failRegressionPercent: readOptionalNumber(properties.failRegressionPercent)
+      };
+
+    aggregate.direction = direction;
+
+    if (aggregate.warnRegressionPercent === undefined) {
+      aggregate.warnRegressionPercent = readOptionalNumber(properties.warnRegressionPercent);
+    }
+
+    if (aggregate.failRegressionPercent === undefined) {
+      aggregate.failRegressionPercent = readOptionalNumber(properties.failRegressionPercent);
+    }
+
+    if (cohort === "baseline") {
+      aggregate.baselineSum += value;
+      aggregate.baselineCount += 1;
+    } else {
+      aggregate.canarySum += value;
+      aggregate.canaryCount += 1;
+
+      const sampleKey = readSampleKey(event, properties);
+      if (sampleKey) {
+        canarySamples.add(sampleKey);
+      } else {
+        anonymousCanarySamples += 1;
+      }
+    }
+
+    metrics.set(metricName, aggregate);
+  }
+
+  const canaryMetrics: CanaryMetricInput[] = [...metrics.entries()]
+    .filter(([, metric]) => metric.baselineCount > 0 && metric.canaryCount > 0)
+    .map(([name, metric]) => ({
+      name,
+      baseline: round(metric.baselineSum / metric.baselineCount),
+      canary: round(metric.canarySum / metric.canaryCount),
+      direction: metric.direction,
+      ...(metric.warnRegressionPercent !== undefined
+        ? { warnRegressionPercent: metric.warnRegressionPercent }
+        : {}),
+      ...(metric.failRegressionPercent !== undefined
+        ? { failRegressionPercent: metric.failRegressionPercent }
+        : {})
+    }));
+
+  if (canaryMetrics.length === 0) {
+    throw new Error("No complete canary metrics were found");
+  }
+
+  return {
+    appId: input.appId,
+    surfaceId: input.surfaceId,
+    branchId: input.branchId,
+    ...(input.branchName ? { branchName: input.branchName } : {}),
+    rolloutPercentage: input.rolloutPercentage,
+    sampleSize: canarySamples.size + anonymousCanarySamples,
+    ...(input.minSampleSize !== undefined ? { minSampleSize: input.minSampleSize } : {}),
+    metrics: canaryMetrics,
+    ...(input.observedAt ? { observedAt: input.observedAt } : {})
+  };
+}
+
 function analyzeMetric(metric: CanaryMetricInput): MetricObservation {
   const warnThreshold = metric.warnRegressionPercent ?? defaultWarnRegressionPercent;
   const failThreshold = metric.failRegressionPercent ?? defaultFailRegressionPercent;
@@ -235,6 +387,62 @@ function analyzeMetric(metric: CanaryMetricInput): MetricObservation {
     status,
     reason
   };
+}
+
+function readMetricName(properties: Record<string, unknown>): string | undefined {
+  const metric = properties.metric ?? properties.metricName ?? properties.name;
+
+  return typeof metric === "string" && metric.trim() !== "" ? metric : undefined;
+}
+
+function readMetricValue(properties: Record<string, unknown>): number | undefined {
+  const value = properties.value;
+
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function readMetricDirection(properties: Record<string, unknown>): MetricDirection | undefined {
+  const direction = properties.direction;
+
+  return direction === "increase" || direction === "decrease" ? direction : undefined;
+}
+
+function readMetricCohort(
+  event: CanaryMetricEventInput,
+  branchId: string
+): "baseline" | "canary" | undefined {
+  const cohort = event.properties?.cohort;
+
+  if (cohort === "baseline" || cohort === "canary") {
+    return cohort;
+  }
+
+  if (event.branchId === branchId) {
+    return "canary";
+  }
+
+  if (event.branchId === null || event.branchId === undefined || event.branchId === "default") {
+    return "baseline";
+  }
+
+  return undefined;
+}
+
+function readSampleKey(
+  event: CanaryMetricEventInput,
+  properties: Record<string, unknown>
+): string | undefined {
+  const sample = properties.sampleId;
+
+  if (typeof sample === "string" && sample.trim() !== "") {
+    return sample;
+  }
+
+  return event.sessionId ?? event.userId ?? event.id;
+}
+
+function readOptionalNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function validateInput(input: CanaryObservationInput): void {

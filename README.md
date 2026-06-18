@@ -239,6 +239,14 @@ Observe canary rollout health locally:
 ```bash
 pnpm evo observe fixtures
 pnpm evo observe canary --fixture healthy --json
+pnpm evo observe input \
+  --surface pricing.hero \
+  --branch-id br_demo_seed \
+  --branch pricing.hero.new-user-clarity.v1 \
+  --rollout 25 \
+  --min-sample 10 \
+  --json > .evofork/canary.json
+pnpm evo observe canary --input .evofork/canary.json --json
 ```
 
 Manage local branch state without production credentials:
@@ -642,6 +650,14 @@ pnpm evo route test pricing.hero \
 ```bash
 pnpm evo observe fixtures
 pnpm evo observe canary --fixture healthy --json
+pnpm evo observe input \
+  --surface pricing.hero \
+  --branch-id br_demo_seed \
+  --branch pricing.hero.new-user-clarity.v1 \
+  --rollout 25 \
+  --min-sample 10 \
+  --json > .evofork/canary.json
+pnpm evo observe canary --input .evofork/canary.json --json
 ```
 
 不使用生产凭证也可以管理本地 branch 状态：

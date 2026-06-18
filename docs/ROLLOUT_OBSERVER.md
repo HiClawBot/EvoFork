@@ -36,6 +36,20 @@ Analyze a regression fixture:
 pnpm evo observe canary --fixture regression --json
 ```
 
+Build a canary input from local demo metric events:
+
+```bash
+pnpm evo demo seed
+pnpm evo observe input \
+  --surface pricing.hero \
+  --branch-id br_demo_seed \
+  --branch pricing.hero.new-user-clarity.v1 \
+  --rollout 25 \
+  --min-sample 10 \
+  --json > .evofork/canary.json
+pnpm evo observe canary --input .evofork/canary.json --json
+```
+
 The regression command exits with `1` because it recommends `rollback`. A
 `hold` recommendation exits with `0`, so CI can distinguish unsafe rollback
 conditions from incomplete observation windows.
@@ -94,6 +108,35 @@ Example:
 conversion should usually increase, while error rate and latency should usually
 decrease.
 
+## Local Metric Events
+
+`evo demo seed` writes deterministic local `metric_observed` events into
+`.evofork/demo-seed.json`. The API server also accepts the same event shape via
+`POST /v1/events` and exposes it through `GET /v1/events` for local tooling.
+
+Metric events are local data used to build observer input:
+
+```json
+{
+  "appId": "demo-saas",
+  "event": "metric_observed",
+  "surfaceId": "pricing.hero",
+  "branchId": "br_demo_seed",
+  "sessionId": "canary_1",
+  "properties": {
+    "metric": "pricing_to_signup_conversion",
+    "value": 1,
+    "cohort": "canary",
+    "direction": "increase",
+    "source": "local_demo_seed"
+  }
+}
+```
+
+The input builder computes baseline and canary averages for metrics that have
+both cohorts. It does not send telemetry to third parties and does not mutate
+branch state or traffic.
+
 ## Safety Boundaries
 
 - `surfaceId` must exist in the manifest.
@@ -134,6 +177,20 @@ pnpm evo observe canary --fixture healthy --json
 
 ```bash
 pnpm evo observe canary --fixture regression --json
+```
+
+从本地 demo metric events 构建 canary 输入：
+
+```bash
+pnpm evo demo seed
+pnpm evo observe input \
+  --surface pricing.hero \
+  --branch-id br_demo_seed \
+  --branch pricing.hero.new-user-clarity.v1 \
+  --rollout 25 \
+  --min-sample 10 \
+  --json > .evofork/canary.json
+pnpm evo observe canary --input .evofork/canary.json --json
 ```
 
 回归 fixture 会返回退出码 `1`，因为它建议 `rollback`。`hold` 建议仍返回
@@ -190,6 +247,34 @@ pnpm evo observe canary --input .evofork/canary.json --json
 
 `direction` 表示该指标哪个方向更好。例如 conversion 通常应上升，error rate
 和 latency 通常应下降。
+
+## 本地指标事件
+
+`evo demo seed` 会把确定性的本地 `metric_observed` events 写入
+`.evofork/demo-seed.json`。API server 也通过 `POST /v1/events` 接收同样的
+事件形状，并通过 `GET /v1/events` 暴露给本地工具使用。
+
+metric event 是用于构建 observer input 的本地数据：
+
+```json
+{
+  "appId": "demo-saas",
+  "event": "metric_observed",
+  "surfaceId": "pricing.hero",
+  "branchId": "br_demo_seed",
+  "sessionId": "canary_1",
+  "properties": {
+    "metric": "pricing_to_signup_conversion",
+    "value": 1,
+    "cohort": "canary",
+    "direction": "increase",
+    "source": "local_demo_seed"
+  }
+}
+```
+
+input builder 会对同时具有 baseline 和 canary cohort 的指标计算平均值。
+它不会向第三方发送遥测，也不会修改 branch state 或流量。
 
 ## 安全边界
 

@@ -206,3 +206,41 @@ Fallback response:
   "properties": {}
 }
 ```
+
+Local metric events for Rollout Observer input use the same endpoint:
+
+```json
+{
+  "appId": "demo-saas",
+  "event": "metric_observed",
+  "surfaceId": "pricing.hero",
+  "branchId": "br_123",
+  "sessionId": "session_123",
+  "properties": {
+    "metric": "pricing_to_signup_conversion",
+    "value": 1,
+    "cohort": "canary",
+    "direction": "increase"
+  }
+}
+```
+
+### GET /v1/events
+
+Returns local metric and behavior events for demo tooling.
+
+Query parameters:
+
+- `appId`
+- `surfaceId`
+- `branchId`
+- `event`
+
+Example:
+
+```http
+GET /v1/events?appId=demo-saas&surfaceId=pricing.hero&event=metric_observed
+```
+
+This endpoint is for local observer input construction in the developer
+preview. It does not export data to third-party telemetry systems.
