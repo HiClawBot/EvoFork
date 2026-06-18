@@ -1,13 +1,12 @@
 {
-  "name": "@evofork/adapter-llm-mock",
+  "name": "@evofork/website",
   "version": "0.4.1",
   "private": true,
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/index.html",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/index.ts",
+    "build": "tsx scripts/build.ts",
+    "dev": "tsx scripts/dev.ts",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit"

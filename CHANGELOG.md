@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.4.1 - Public Website and GitHub Pages
+
+EvoFork now includes an independent bilingual public website package and a
+GitHub Pages deployment workflow.
+
+### Added
+
+- Static `@evofork/website` app with a bilingual homepage, governed-loop visual,
+  and lightweight scenario previews.
+- GitHub Pages workflow that builds `apps/website/dist` and deploys it through
+  GitHub Actions.
+- Public Site and GitHub Pages documentation, including the default project URL
+  and optional `evofork.aifund.com` custom-domain preparation.
+- Website content tests for bilingual copy, trusted-loop scope, and scenario
+  preview safety framing.
+
+### Changed
+
+- README, docs index, and release checklist document the public website build
+  and Pages deployment path.
+- Workspace package versions are bumped to `0.4.1`.
+
+### Notes
+
+The website is a static public project page. It does not add business logic,
+production deployment behavior, third-party telemetry, autonomous merge, or
+custom-domain activation before DNS/domain verification is complete.
+
 ## v0.4.0 - Multi-App Workspace Hardening
 
 Local workspaces can now track multiple EvoFork apps more explicitly.

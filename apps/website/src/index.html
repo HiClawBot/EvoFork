@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="EvoFork is an open-source framework for turning product feedback into governed, auditable version forks."
+    >
+    <!-- build:version -->
+    <title>EvoFork</title>
+    <link rel="stylesheet" href="./assets/styles.css">
+  </head>
+  <body data-locale="en">
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="EvoFork home">
+        <span class="brand-mark" aria-hidden="true">EF</span>
+        <span>EvoFork</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="https://github.com/HiClawBot/EvoFork/blob/main/docs/README.md" data-i18n="navDocs">Docs</a>
+        <a href="https://github.com/HiClawBot/EvoFork/blob/main/docs/QUICKSTART.md" data-i18n="navQuickstart">Quickstart</a>
+        <a href="https://github.com/HiClawBot/EvoFork" data-i18n="navGitHub">GitHub</a>
+      </nav>
+      <div class="locale-switch" aria-label="Language">
+        <button type="button" data-locale-target="en" aria-pressed="true">EN</button>
+        <button type="button" data-locale-target="zh" aria-pressed="false">中文</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="top">
+        <div class="hero-scene" aria-label="EvoFork governed loop visualization">
+          <div class="scene-grid" aria-hidden="true"></div>
+          <div class="scene-rail" aria-hidden="true"></div>
+          <div class="scene-track" data-scene-track></div>
+          <div class="scene-ledger">
+            <span data-i18n="ledgerManifest">manifest: pricing.hero</span>
+            <span data-i18n="ledgerEval">eval: boundary pass</span>
+            <span data-i18n="ledgerRoute">route: reversible</span>
+          </div>
+        </div>
+
+        <div class="hero-content">
+          <p class="eyebrow" data-i18n="eyebrow">Open-source framework for governed application evolution</p>
+          <h1 data-i18n="heroTitle">EvoFork</h1>
+          <p class="hero-copy" data-i18n="heroBody">
+            Turn feedback, support intelligence, and product metrics into reviewable forks that stay inside manifest boundaries.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="https://github.com/HiClawBot/EvoFork" data-i18n="primaryCta">
+              Read the repository
+            </a>
+            <a class="button button-secondary" href="https://github.com/HiClawBot/EvoFork/blob/main/docs/QUICKSTART.md" data-i18n="secondaryCta">
+              Open quickstart
+            </a>
+          </div>
+          <p class="status-line">
+            <span data-i18n="statusLabel">Developer Preview</span>
+            <span>v0.4.1</span>
+          </p>
+        </div>
+      </section>
+
+      <section class="band intro-band" aria-labelledby="loop-title">
+        <div class="section-heading">
+          <p class="section-kicker" data-i18n="loopKicker">Trusted loop</p>
+          <h2 id="loop-title" data-i18n="loopTitle">A safer loop from signal to route</h2>
+          <p data-i18n="loopBody">
+            EvoFork keeps every proposed change tied to a manifest surface, Eval Gate result, branch registry record, and reversible routing decision.
+          </p>
+        </div>
+        <div class="loop-track" data-loop-track></div>
+      </section>
+
+      <section class="band scenario-band" aria-labelledby="scenario-title">
+        <div class="section-heading">
+          <p class="section-kicker" data-i18n="scenarioKicker">Use cases</p>
+          <h2 id="scenario-title" data-i18n="scenarioTitle">Scenario previews</h2>
+          <p data-i18n="scenarioBody">
+            The public site starts with lightweight scenario previews. The next releases will promote these into versioned fixtures and an interactive scenario player.
+          </p>
+        </div>
+        <div class="scenario-layout">
+          <div class="scenario-nav" data-scenario-nav></div>
+          <article class="scenario-detail" data-scenario-detail></article>
+        </div>
+      </section>
+
+      <section class="band safety-band" aria-labelledby="safety-title">
+        <div class="safety-panel">
+          <div>
+            <p class="section-kicker" data-i18n="safetyKicker">Governance</p>
+            <h2 id="safety-title" data-i18n="safetyTitle">Safety constraints stay visible</h2>
+          </div>
+          <p data-i18n="safetyBody">
+            No autonomous merge, no production deploy, no payment/auth/legal/database edits by default, and no third-party telemetry export.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p data-i18n="footer">Apache-2.0 open source. Built for local-first demos with mock adapters.</p>
+      <a href="https://github.com/HiClawBot/EvoFork">github.com/HiClawBot/EvoFork</a>
+    </footer>
+
+    <script type="module" src="./assets/main.js"></script>
+  </body>
+</html>

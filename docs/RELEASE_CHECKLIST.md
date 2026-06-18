@@ -1,10 +1,11 @@
-# EvoFork v0.4 Release Checklist
+# EvoFork v0.4.1 Release Checklist
 
 Run from the repository root before publishing a GitHub release.
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm verify
+pnpm --filter @evofork/website build
 ```
 
 Security and safety checks:
@@ -20,6 +21,7 @@ pnpm evo observe input --surface pricing.hero --branch-id br_demo_seed --min-sam
 pnpm evo observe canary --input .evofork/canary.json --json
 pnpm --filter @evofork/adapter-opentelemetry test
 pnpm --filter @evofork/adapter-argo-rollouts test
+pnpm --filter @evofork/website test
 pnpm evo argo plan --surface pricing.hero --branch-id br_demo_seed --weight 25 --workload demo-nextjs --stable-service demo-nextjs-stable --canary-service demo-nextjs-canary --approved --json
 pnpm evo branch create --surface pricing.hero --branch pricing.hero.release-check.v1 --state .evofork/release-branch.json
 pnpm evo branch approve br_local_001 --state .evofork/release-branch.json
@@ -49,6 +51,8 @@ Local demo smoke path:
     metric rows, and audit payload summary.
 15. Confirm the pricing page resolves `pricing.hero.new-user-clarity.v1`.
 16. Revert the branch and confirm routing falls back to `default`.
+17. Run `pnpm --filter @evofork/website dev -- --host 127.0.0.1 --port 4173`.
+18. Open `http://127.0.0.1:4173` and confirm the bilingual public site renders.
 
 Release notes:
 
@@ -69,4 +73,6 @@ Release notes:
   app-scoped.
 - Manifest-configured API servers reject app/surface requests outside the active
   manifest scope.
+- The public website is static, bilingual, and deployed from `apps/website/dist`
+  through GitHub Pages.
 - `.env`, `.next`, `.turbo`, `dist`, and local `.evofork` state must not be committed.
