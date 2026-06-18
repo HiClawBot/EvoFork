@@ -17,6 +17,8 @@ pnpm evo demo seed
 pnpm evo observe input --surface pricing.hero --branch-id br_demo_seed --min-sample 10 --json > .evofork/canary.json
 pnpm evo observe canary --input .evofork/canary.json --json
 pnpm --filter @evofork/adapter-opentelemetry test
+pnpm --filter @evofork/adapter-argo-rollouts test
+pnpm evo argo plan --surface pricing.hero --branch-id br_demo_seed --weight 25 --workload demo-nextjs --stable-service demo-nextjs-stable --canary-service demo-nextjs-canary --approved --json
 pnpm evo branch create --surface pricing.hero --branch pricing.hero.release-check.v1 --state .evofork/release-branch.json
 pnpm evo branch approve br_local_001 --state .evofork/release-branch.json
 pnpm evo branch promote br_local_001 --approved --eval-passed --state .evofork/release-branch.json
@@ -57,6 +59,8 @@ Release notes:
   third-party telemetry systems by default.
 - The OpenTelemetry adapter is a local bridge only; it does not start a
   collector or export telemetry by default.
+- The Argo Rollouts adapter is a local dry-run planner only; it does not
+  connect to Kubernetes, execute `kubectl`, or write cluster state.
 - Branch promotion and sunset remain governed local state changes with policy
   and audit records; they do not deploy or mutate production traffic directly.
 - `.env`, `.next`, `.turbo`, `dist`, and local `.evofork` state must not be committed.

@@ -2,6 +2,11 @@ import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import {
+  generateArgoRolloutDryRunPlan,
+  toKubernetesName,
+  type ArgoRolloutDryRunPlan
+} from "@evofork/adapter-argo-rollouts";
+import {
   approveLocalBranch,
   createDemoSeedAuditLogs,
   createLocalBranch,
@@ -67,6 +72,7 @@ const valueOptionNames = new Set([
   "branch",
   "branch-id",
   "branches",
+  "canary-service",
   "changed-file",
   "changed-files",
   "change",
@@ -81,20 +87,27 @@ const valueOptionNames = new Set([
   "input",
   "min-sample",
   "migrations-dir",
+  "namespace",
   "observed-at",
   "output",
   "percentage",
+  "pause-duration",
   "priority",
   "reason",
+  "replicas",
   "rfc",
   "rollout",
+  "rollout-name",
   "segment",
   "state",
   "status",
+  "stable-service",
   "surface",
   "text",
   "user",
-  "user-id"
+  "user-id",
+  "weight",
+  "workload"
 ]);
 
 export async function runCli(
@@ -155,6 +168,10 @@ export async function runCli(
 
     if (namespace === "observe" && command === "fixtures") {
       return observeFixturesCommand(commandArgs, io);
+    }
+
+    if (namespace === "argo" && command === "plan") {
+      return await argoPlanCommand(parsedArgs.manifestPath, commandArgs, io);
     }
 
     if (namespace === "branch" && command === "list") {
@@ -300,6 +317,7 @@ function printHelp(io: CliIO): void {
   io.stdout.log("  evo observe canary [--fixture <id>] [--input <path>] [--json]");
   io.stdout.log("  evo observe input --surface <surfaceId> --branch-id <id> [--state <path>] [--json]");
   io.stdout.log("  evo observe fixtures [--json]");
+  io.stdout.log("  evo argo plan --surface <surfaceId> --branch-id <id> [--weight <0-100>] [--approved] [--json]");
   io.stdout.log("  evo branch list [--state <path>] [--surface <surfaceId>] [--status <status>] [--json]");
   io.stdout.log("  evo branch create --surface <surfaceId> [--branch <name>] [--segment <key=value>] [--state <path>] [--json]");
   io.stdout.log("  evo branch approve <branchId> [--state <path>] [--actor <name>] [--json]");
@@ -765,6 +783,79 @@ function observeFixturesCommand(args: string[], io: CliIO): number {
   }
 
   return 0;
+}
+
+async function argoPlanCommand(
+  manifestPath: string,
+  args: string[],
+  io: CliIO
+): Promise<number> {
+  const manifest = await loadManifest(manifestPath);
+  const surfaceId =
+    readOption(args, "surface") ?? args.find((arg) => !arg.startsWith("--"));
+
+  if (!surfaceId) {
+    throw new Error("Missing required --surface <surfaceId>");
+  }
+
+  const surface = findSurface(manifest, surfaceId);
+
+  if (!surface) {
+    throw new Error(`Surface not found: ${surfaceId}`);
+  }
+
+  const appName = toKubernetesName(manifest.app.id);
+  const plan = generateArgoRolloutDryRunPlan({
+    appId: manifest.app.id,
+    surfaceId,
+    branchId: readOption(args, "branch-id") ?? "br_demo_seed",
+    branchName: readOption(args, "branch") ?? `${surfaceId}.new-user-clarity.v1`,
+    namespace: readOption(args, "namespace"),
+    rolloutName: readOption(args, "rollout-name"),
+    workloadRefName: readOption(args, "workload") ?? appName,
+    stableServiceName: readOption(args, "stable-service") ?? `${appName}-stable`,
+    canaryServiceName: readOption(args, "canary-service") ?? `${appName}-canary`,
+    canaryWeight: parseRolloutPercentage(
+      readOption(args, "weight") ?? readOption(args, "rollout") ?? "5"
+    ),
+    replicas: parseOptionalInteger(readOption(args, "replicas")),
+    maxAutoPercentage: surface.rollout?.max_auto_percentage,
+    requireHumanApproval: surface.rollout?.require_human_approval,
+    humanApproved: hasFlag(args, "approved") || hasFlag(args, "human-approved"),
+    pauseDuration: readOption(args, "pause-duration")
+  });
+
+  printArgoPlan(args, io, plan);
+  return plan.decision === "ready" ? 0 : 1;
+}
+
+function printArgoPlan(args: string[], io: CliIO, plan: ArgoRolloutDryRunPlan): void {
+  if (hasFlag(args, "json")) {
+    io.stdout.log(JSON.stringify(plan, null, 2));
+    return;
+  }
+
+  io.stdout.log(`Argo Rollouts plan: ${plan.decision}`);
+  io.stdout.log(`Surface: ${plan.rollout.surfaceId}`);
+  io.stdout.log(`Branch: ${plan.rollout.branchName ?? plan.rollout.branchId}`);
+  io.stdout.log(`Rollout: ${plan.rollout.canaryWeight}%`);
+  io.stdout.log(`Namespace: ${plan.rollout.namespace}`);
+  io.stdout.log(`Rollout name: ${plan.rollout.rolloutName}`);
+  io.stdout.log(`Cluster writes: ${String(plan.safety.clusterWrites)}`);
+
+  if (plan.reasons.length > 0) {
+    io.stdout.log("Reasons:");
+
+    for (const reason of plan.reasons) {
+      io.stdout.log(`- ${reason}`);
+    }
+  }
+
+  io.stdout.log("Review commands:");
+
+  for (const command of plan.reviewCommands) {
+    io.stdout.log(`- ${command}`);
+  }
 }
 
 async function branchListCommand(args: string[], io: CliIO): Promise<number> {

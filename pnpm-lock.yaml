@@ -108,6 +108,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@evofork/adapter-argo-rollouts':
+        specifier: workspace:*
+        version: link:../../adapters/argo-rollouts
       '@evofork/branch-registry':
         specifier: workspace:*
         version: link:../../services/branch-registry
