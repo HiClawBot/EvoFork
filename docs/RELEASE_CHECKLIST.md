@@ -16,6 +16,10 @@ pnpm evo observe canary --fixture healthy --json
 pnpm evo demo seed
 pnpm evo observe input --surface pricing.hero --branch-id br_demo_seed --min-sample 10 --json > .evofork/canary.json
 pnpm evo observe canary --input .evofork/canary.json --json
+pnpm evo branch create --surface pricing.hero --branch pricing.hero.release-check.v1 --state .evofork/release-branch.json
+pnpm evo branch approve br_local_001 --state .evofork/release-branch.json
+pnpm evo branch promote br_local_001 --approved --eval-passed --state .evofork/release-branch.json
+pnpm evo branch sunset br_local_001 --state .evofork/release-branch.json
 ```
 
 The second command must fail because the changed file is outside the manifest
@@ -34,10 +38,12 @@ Local demo smoke path:
 9. Confirm local seed feedback is visible if the API has no records yet.
 10. Generate RFC.
 11. Create demo branch.
-12. Confirm the Admin Console Rollout Observer panel shows recommendation,
+12. Promote a local canary branch only with `--approved --eval-passed`.
+13. Sunset the promoted branch and confirm policy/audit records are written.
+14. Confirm the Admin Console Rollout Observer panel shows recommendation,
     metric rows, and audit payload summary.
-13. Confirm the pricing page resolves `pricing.hero.new-user-clarity.v1`.
-14. Revert the branch and confirm routing falls back to `default`.
+15. Confirm the pricing page resolves `pricing.hero.new-user-clarity.v1`.
+16. Revert the branch and confirm routing falls back to `default`.
 
 Release notes:
 
@@ -48,4 +54,6 @@ Release notes:
   traffic or branch state.
 - Local metric events are developer-preview input data and are not exported to
   third-party telemetry systems by default.
+- Branch promotion and sunset remain governed local state changes with policy
+  and audit records; they do not deploy or mutate production traffic directly.
 - `.env`, `.next`, `.turbo`, `dist`, and local `.evofork` state must not be committed.

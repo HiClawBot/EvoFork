@@ -97,6 +97,27 @@ describe(serviceId, () => {
     expect(approved.allowed).toBe(true);
   });
 
+  it("applies rollout approval policy to promote actions", () => {
+    const blocked = evaluatePolicy({
+      manifest,
+      surfaceId: "pricing.hero",
+      action: "promote",
+      rolloutPercentage: 100
+    });
+    const approved = evaluatePolicy({
+      manifest,
+      surfaceId: "pricing.hero",
+      action: "promote",
+      rolloutPercentage: 100,
+      humanApproved: true
+    });
+
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.audit.payload.action).toBe("promote");
+    expect(blocked.requiredApprovals).toEqual(["human_approval", "rollout_approval"]);
+    expect(approved.allowed).toBe(true);
+  });
+
   it("blocks unknown surfaces", () => {
     const decision = evaluatePolicy({
       manifest,

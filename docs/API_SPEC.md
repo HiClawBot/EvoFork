@@ -143,11 +143,39 @@ Approves a branch for canary.
 }
 ```
 
+### POST /v1/branches/:id/promote
+
+Promotes a canary branch to active when manifest policy and Eval Gate evidence
+pass. The API server must be configured with a manifest for this route.
+
+```json
+{
+  "actor": "maintainer",
+  "approved": true,
+  "evalPassed": true
+}
+```
+
+Blocked policy decisions return `400` with `error: "policy_blocked"` and write a
+policy audit log. Missing Eval Gate evidence returns `400` with
+`error: "eval_gate_required"` and writes an `eval_blocked` audit log.
+
 ### POST /v1/branches/:id/revert
 
 ```json
 {
   "reason": "error rate increased"
+}
+```
+
+### POST /v1/branches/:id/sunset
+
+Sunsets an active, canary, or reverted branch after manifest policy checks and
+audit logging.
+
+```json
+{
+  "actor": "maintainer"
 }
 ```
 

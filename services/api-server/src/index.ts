@@ -3,8 +3,11 @@ import {
   BranchRegistryError,
   InMemoryBranchRegistry,
   type BranchRegistry,
+  type BranchRecord,
   type BranchStatus
 } from "@evofork/branch-registry";
+import { type EvoManifest } from "@evofork/manifest-parser";
+import { evaluatePolicy, type PolicyDecision } from "@evofork/policy-engine";
 import { resolveVariant } from "@evofork/router";
 import Fastify, {
   type FastifyInstance,
@@ -23,6 +26,7 @@ export const serviceId = "@evofork/api-server";
 
 export type ApiServerOptions = {
   logger?: boolean;
+  manifest?: EvoManifest;
   signalRepository?: SignalRepository;
   metricEventRepository?: MetricEventRepository;
   branchRegistry?: BranchRegistry;
@@ -145,6 +149,15 @@ const rolloutBranchSchema = z.object({
   percentage: z.number().int().min(0).max(100),
   actor: z.string().min(1).optional()
 });
+
+const promoteBranchSchema = z
+  .object({
+    actor: z.string().min(1).optional(),
+    approved: z.boolean().optional(),
+    humanApproved: z.boolean().optional(),
+    evalPassed: z.boolean().optional()
+  })
+  .default({});
 
 const revertBranchSchema = z.object({
   reason: z.string().min(1),
@@ -355,6 +368,69 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
         return reply.send({ branch });
       });
 
+      v1.post("/branches/:id/promote", async (request, reply) => {
+        const params = branchParamsSchema.parse(request.params);
+        const input = parseBody(promoteBranchSchema, request) ?? {};
+        const actor = input.actor ?? "maintainer";
+        const branch = await requireApiBranch(branchRegistry, params.id);
+        const manifest = requirePolicyManifest(options.manifest);
+        const policyDecision = evaluatePolicy({
+          manifest,
+          surfaceId: branch.surfaceId,
+          action: "promote",
+          rolloutPercentage: 100,
+          actor,
+          humanApproved: input.humanApproved ?? input.approved ?? false
+        });
+        const policyAuditLog = await recordApiPolicyAudit(
+          branchRegistry,
+          branch,
+          actor,
+          policyDecision
+        );
+
+        if (!policyDecision.allowed) {
+          return reply.status(400).send({
+            error: "policy_blocked",
+            policyDecision,
+            auditLog: policyAuditLog
+          });
+        }
+
+        if (!branchEvalPassed(branch) && !input.evalPassed) {
+          const auditLog = await branchRegistry.recordAudit(branch.id, {
+            actor,
+            event: "eval_blocked",
+            payload: {
+              action: "promote",
+              reason: "Eval Gate must pass before promotion."
+            }
+          });
+
+          return reply.status(400).send({
+            error: "eval_gate_required",
+            auditLog
+          });
+        }
+
+        const evalAuditLog = await branchRegistry.recordAudit(branch.id, {
+          actor,
+          event: "eval_allowed",
+          payload: {
+            action: "promote",
+            source: input.evalPassed ? "api_request" : "branch_eval_report"
+          }
+        });
+        const promoted = await branchRegistry.promote(params.id, { actor });
+
+        return reply.send({
+          branch: promoted,
+          policyDecision,
+          policyAuditLog,
+          evalAuditLog
+        });
+      });
+
       v1.post("/branches/:id/revert", async (request, reply) => {
         const params = branchParamsSchema.parse(request.params);
         const input = parseBody(revertBranchSchema, request);
@@ -365,10 +441,39 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
 
       v1.post("/branches/:id/sunset", async (request, reply) => {
         const params = branchParamsSchema.parse(request.params);
-        const input = parseBody(sunsetBranchSchema, request);
-        const branch = await branchRegistry.sunset(params.id, input);
+        const input = parseBody(sunsetBranchSchema, request) ?? {};
+        const actor = input.actor ?? "maintainer";
+        const branch = await requireApiBranch(branchRegistry, params.id);
+        const manifest = requirePolicyManifest(options.manifest);
+        const policyDecision = evaluatePolicy({
+          manifest,
+          surfaceId: branch.surfaceId,
+          action: "sunset",
+          actor,
+          humanApproved: true
+        });
+        const policyAuditLog = await recordApiPolicyAudit(
+          branchRegistry,
+          branch,
+          actor,
+          policyDecision
+        );
 
-        return reply.send({ branch });
+        if (!policyDecision.allowed) {
+          return reply.status(400).send({
+            error: "policy_blocked",
+            policyDecision,
+            auditLog: policyAuditLog
+          });
+        }
+
+        const updatedBranch = await branchRegistry.sunset(params.id, { actor });
+
+        return reply.send({
+          branch: updatedBranch,
+          policyDecision,
+          policyAuditLog
+        });
       });
 
       v1.post("/variants/resolve", async (request, reply) => {
@@ -400,6 +505,55 @@ export function buildApiServer(options: ApiServerOptions = {}): FastifyInstance 
 
 function parseBody<T>(schema: ZodSchema<T>, request: FastifyRequest): T {
   return schema.parse(request.body);
+}
+
+async function requireApiBranch(
+  branchRegistry: BranchRegistry,
+  id: string
+): Promise<BranchRecord> {
+  const branch = await branchRegistry.get(id);
+
+  if (!branch) {
+    throw new BranchRegistryError("branch_not_found", `Branch not found: ${id}`, 404);
+  }
+
+  return branch;
+}
+
+function requirePolicyManifest(manifest: EvoManifest | undefined): EvoManifest {
+  if (!manifest) {
+    throw new BranchRegistryError(
+      "manifest_required",
+      "A manifest is required for policy-gated branch actions"
+    );
+  }
+
+  return manifest;
+}
+
+async function recordApiPolicyAudit(
+  branchRegistry: BranchRegistry,
+  branch: BranchRecord,
+  actor: string,
+  policyDecision: PolicyDecision
+) {
+  return await branchRegistry.recordAudit(branch.id, {
+    actor,
+    event: policyDecision.audit.event,
+    payload: {
+      ...policyDecision.audit.payload,
+      reasons: policyDecision.reasons,
+      requiredApprovals: policyDecision.requiredApprovals
+    }
+  });
+}
+
+function branchEvalPassed(branch: BranchRecord): boolean {
+  return isRecord(branch.evalReport) && branch.evalReport.status === "passed";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function feedbackSignalType(rating: number | undefined): string {

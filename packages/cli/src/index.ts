@@ -8,6 +8,7 @@ import {
   defaultLocalDemoStatePath,
   readLocalDemoState,
   readOrCreateLocalDemoState,
+  promoteLocalBranch,
   recordLocalBranchAuditLog,
   revertLocalBranch,
   rolloutLocalBranch,
@@ -172,12 +173,16 @@ export async function runCli(
       return await branchRolloutCommand(parsedArgs.manifestPath, commandArgs, io);
     }
 
+    if (namespace === "branch" && command === "promote") {
+      return await branchPromoteCommand(parsedArgs.manifestPath, commandArgs, io);
+    }
+
     if (namespace === "branch" && command === "revert") {
       return await branchRevertCommand(commandArgs, io);
     }
 
     if (namespace === "branch" && command === "sunset") {
-      return await branchSunsetCommand(commandArgs, io);
+      return await branchSunsetCommand(parsedArgs.manifestPath, commandArgs, io);
     }
 
     if (namespace === "db" && command === "status") {
@@ -299,6 +304,7 @@ function printHelp(io: CliIO): void {
   io.stdout.log("  evo branch create --surface <surfaceId> [--branch <name>] [--segment <key=value>] [--state <path>] [--json]");
   io.stdout.log("  evo branch approve <branchId> [--state <path>] [--actor <name>] [--json]");
   io.stdout.log("  evo branch rollout <branchId> --percentage <0-100> [--state <path>] [--actor <name>] [--approved] [--json]");
+  io.stdout.log("  evo branch promote <branchId> --approved --eval-passed [--state <path>] [--actor <name>] [--json]");
   io.stdout.log("  evo branch revert <branchId> --reason <reason> [--state <path>] [--actor <name>] [--json]");
   io.stdout.log("  evo branch sunset <branchId> [--state <path>] [--actor <name>] [--json]");
   io.stdout.log("  evo db status [--migrations-dir <path>] [--json]");
@@ -921,6 +927,98 @@ async function branchRolloutCommand(
   return printBranchMutationResult(args, io, state.path, updatedBranch, auditLog, policyAuditLog);
 }
 
+async function branchPromoteCommand(
+  manifestPath: string,
+  args: string[],
+  io: CliIO
+): Promise<number> {
+  const branchId = readPositionalArgs(args)[0];
+
+  if (!branchId) {
+    throw new Error("Missing required branchId");
+  }
+
+  const state = await readLocalDemoState(readBranchStatePath(args));
+  const branch = state.branches.find((candidate) => candidate.id === branchId);
+
+  if (!branch) {
+    throw new Error(`Branch not found: ${branchId}`);
+  }
+
+  const actor = readOption(args, "actor") ?? "local-maintainer";
+  const manifest = await loadManifest(manifestPath);
+  const policyDecision = evaluatePolicy({
+    manifest,
+    surfaceId: branch.surfaceId,
+    action: "promote",
+    rolloutPercentage: 100,
+    actor,
+    humanApproved: hasFlag(args, "approved") || hasFlag(args, "human-approved")
+  });
+  const policyAuditLog = recordLocalBranchAuditLog(
+    state,
+    branchId,
+    actor,
+    policyDecision.audit.event,
+    {
+      ...policyDecision.audit.payload,
+      reasons: policyDecision.reasons,
+      requiredApprovals: policyDecision.requiredApprovals
+    }
+  );
+
+  if (!policyDecision.allowed) {
+    await writeLocalDemoState(state);
+    return printBranchPolicyBlockedResult(
+      args,
+      io,
+      state.path,
+      branch,
+      policyDecision,
+      policyAuditLog
+    );
+  }
+
+  if (!branchEvalPassed(branch) && !hasFlag(args, "eval-passed")) {
+    const evalAuditLog = recordLocalBranchAuditLog(
+      state,
+      branchId,
+      actor,
+      "eval_blocked",
+      {
+        action: "promote",
+        reason: "Eval Gate must pass before promotion."
+      }
+    );
+
+    await writeLocalDemoState(state);
+    return printBranchEvalBlockedResult(args, io, state.path, branch, evalAuditLog);
+  }
+
+  const evalAuditLog = recordLocalBranchAuditLog(
+    state,
+    branchId,
+    actor,
+    "eval_allowed",
+    {
+      action: "promote",
+      source: hasFlag(args, "eval-passed") ? "cli_flag" : "branch_eval_report"
+    }
+  );
+  const { branch: updatedBranch, auditLog } = promoteLocalBranch(state, branchId, actor);
+
+  await writeLocalDemoState(state);
+  return printBranchMutationResult(
+    args,
+    io,
+    state.path,
+    updatedBranch,
+    auditLog,
+    policyAuditLog,
+    evalAuditLog
+  );
+}
+
 async function branchRevertCommand(args: string[], io: CliIO): Promise<number> {
   const reason = readOption(args, "reason");
 
@@ -933,10 +1031,61 @@ async function branchRevertCommand(args: string[], io: CliIO): Promise<number> {
   );
 }
 
-async function branchSunsetCommand(args: string[], io: CliIO): Promise<number> {
-  return await mutateLocalBranchCommand(args, io, (state, branchId, actor) =>
-    sunsetLocalBranch(state, branchId, actor)
+async function branchSunsetCommand(
+  manifestPath: string,
+  args: string[],
+  io: CliIO
+): Promise<number> {
+  const branchId = readPositionalArgs(args)[0];
+
+  if (!branchId) {
+    throw new Error("Missing required branchId");
+  }
+
+  const state = await readLocalDemoState(readBranchStatePath(args));
+  const branch = state.branches.find((candidate) => candidate.id === branchId);
+
+  if (!branch) {
+    throw new Error(`Branch not found: ${branchId}`);
+  }
+
+  const actor = readOption(args, "actor") ?? "local-maintainer";
+  const manifest = await loadManifest(manifestPath);
+  const policyDecision = evaluatePolicy({
+    manifest,
+    surfaceId: branch.surfaceId,
+    action: "sunset",
+    actor,
+    humanApproved: hasFlag(args, "approved") || hasFlag(args, "human-approved")
+  });
+  const policyAuditLog = recordLocalBranchAuditLog(
+    state,
+    branchId,
+    actor,
+    policyDecision.audit.event,
+    {
+      ...policyDecision.audit.payload,
+      reasons: policyDecision.reasons,
+      requiredApprovals: policyDecision.requiredApprovals
+    }
   );
+
+  if (!policyDecision.allowed) {
+    await writeLocalDemoState(state);
+    return printBranchPolicyBlockedResult(
+      args,
+      io,
+      state.path,
+      branch,
+      policyDecision,
+      policyAuditLog
+    );
+  }
+
+  const { branch: updatedBranch, auditLog } = sunsetLocalBranch(state, branchId, actor);
+
+  await writeLocalDemoState(state);
+  return printBranchMutationResult(args, io, state.path, updatedBranch, auditLog, policyAuditLog);
 }
 
 async function mutateLocalBranchCommand(
@@ -968,7 +1117,8 @@ function printBranchMutationResult(
   statePath: string,
   branch: BranchRecord,
   auditLog: AuditLogRecord,
-  policyAuditLog?: AuditLogRecord
+  policyAuditLog?: AuditLogRecord,
+  evalAuditLog?: AuditLogRecord
 ): number {
   if (hasFlag(args, "json")) {
     io.stdout.log(
@@ -977,7 +1127,8 @@ function printBranchMutationResult(
           statePath,
           branch,
           auditLog,
-          policyAuditLog
+          policyAuditLog,
+          evalAuditLog
         },
         null,
         2
@@ -991,6 +1142,9 @@ function printBranchMutationResult(
   io.stdout.log(`Rollout: ${branch.rolloutPercentage}%`);
   if (policyAuditLog) {
     io.stdout.log(`Policy: ${policyAuditLog.event}`);
+  }
+  if (evalAuditLog) {
+    io.stdout.log(`Eval: ${evalAuditLog.event}`);
   }
   io.stdout.log(`Audit: ${auditLog.event}`);
   io.stdout.log(`State: ${statePath}`);
@@ -1021,7 +1175,7 @@ function printBranchPolicyBlockedResult(
     return 1;
   }
 
-  io.stderr.error(`Policy blocked rollout for ${branch.id}`);
+  io.stderr.error(`Policy blocked ${policyDecision.action} for ${branch.id}`);
   for (const reason of policyDecision.reasons) {
     io.stderr.error(`- ${reason}`);
   }
@@ -1031,6 +1185,40 @@ function printBranchPolicyBlockedResult(
   io.stderr.error(`Audit: ${auditLog.event}`);
   io.stderr.error(`State: ${statePath}`);
   return 1;
+}
+
+function printBranchEvalBlockedResult(
+  args: string[],
+  io: CliIO,
+  statePath: string,
+  branch: BranchRecord,
+  auditLog: AuditLogRecord
+): number {
+  if (hasFlag(args, "json")) {
+    io.stdout.log(
+      JSON.stringify(
+        {
+          statePath,
+          branch,
+          auditLog,
+          error: "eval_gate_required"
+        },
+        null,
+        2
+      )
+    );
+    return 1;
+  }
+
+  io.stderr.error(`Eval Gate blocked promotion for ${branch.id}`);
+  io.stderr.error("- Eval Gate must pass before promotion.");
+  io.stderr.error(`Audit: ${auditLog.event}`);
+  io.stderr.error(`State: ${statePath}`);
+  return 1;
+}
+
+function branchEvalPassed(branch: BranchRecord): boolean {
+  return isRecord(branch.evalReport) && branch.evalReport.status === "passed";
 }
 
 function createRouteTestBranch(input: {
