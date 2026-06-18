@@ -11,12 +11,18 @@ export type LoopStep = {
 
 export type ScenarioPreview = {
   id: string;
+  title: LocalizedText;
   surfaceId: string;
+  surfaceType: "react-component" | "markdown-doc" | "llm-prompt";
   branch: string;
   audience: LocalizedText;
   problem: LocalizedText;
+  signalExamples: LocalizedText[];
+  allowedChanges: string[];
+  blockedChanges: string[];
   evalGate: LocalizedText;
   metric: string;
+  guardrailMetrics: string[];
   steps: ScenarioStep[];
 };
 
@@ -88,16 +94,72 @@ export const copy = {
     zh: "EvoFork 让每次候选变更都绑定 manifest surface、Eval Gate 结果、branch registry 记录和可回滚的路由决策。"
   },
   scenarioTitle: {
-    en: "Scenario previews",
-    zh: "应用场景预览"
+    en: "Scenario Player",
+    zh: "场景播放器"
   },
   scenarioKicker: {
     en: "Use cases",
     zh: "应用场景"
   },
   scenarioBody: {
-    en: "The public site starts with lightweight scenario previews. The next releases will promote these into versioned fixtures and an interactive scenario player.",
-    zh: "官网首版先提供轻量场景预览。后续版本会把它们升级成版本化 fixtures 和可交互场景播放器。"
+    en: "Explore versioned scenario fixtures as a public demo of the governed loop, from evidence to reversible route.",
+    zh: "以公开 demo 的方式查看版本化场景 fixture，贯穿从证据到可回滚路由的治理闭环。"
+  },
+  scenarioLoading: {
+    en: "Loading scenario models",
+    zh: "正在加载场景模型"
+  },
+  scenarioUnavailable: {
+    en: "Scenario models are not available in this build.",
+    zh: "此构建中没有可用的场景模型。"
+  },
+  scenarioLoadError: {
+    en: "Scenario models could not be loaded.",
+    zh: "场景模型加载失败。"
+  },
+  playerAudience: {
+    en: "Audience",
+    zh: "受众"
+  },
+  playerProblem: {
+    en: "Problem",
+    zh: "问题"
+  },
+  playerMetric: {
+    en: "Primary metric",
+    zh: "主指标"
+  },
+  playerSignals: {
+    en: "Evidence signals",
+    zh: "证据信号"
+  },
+  playerAllowed: {
+    en: "Allowed changes",
+    zh: "允许变更"
+  },
+  playerBlocked: {
+    en: "Blocked changes",
+    zh: "阻止变更"
+  },
+  playerGuardrails: {
+    en: "Guardrails",
+    zh: "护栏指标"
+  },
+  playerEvalGate: {
+    en: "Eval Gate",
+    zh: "Eval Gate"
+  },
+  playerRoute: {
+    en: "Route decision",
+    zh: "路由决策"
+  },
+  playerBranch: {
+    en: "Branch",
+    zh: "分支"
+  },
+  playerSurfaceType: {
+    en: "Surface type",
+    zh: "Surface 类型"
   },
   safetyTitle: {
     en: "Safety constraints stay visible",

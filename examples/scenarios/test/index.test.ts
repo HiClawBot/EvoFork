@@ -41,7 +41,13 @@ describe("scenario models", () => {
     const previews = toPublicScenarioPreviews(await loadScenarioModelsFromDirectory("fixtures"));
 
     expect(previews).toHaveLength(3);
-    expect(previews[0]).not.toHaveProperty("blockedChanges");
+    expect(previews[0]?.title.en).toBe("Pricing hero clarity");
+    expect(previews[0]?.surfaceType).toBe("react-component");
+    expect(previews[0]?.signalExamples).toHaveLength(2);
+    expect(previews[0]?.allowedChanges).toContain("copy");
+    expect(previews[0]?.blockedChanges).toContain("pricing_amount");
+    expect(previews[0]?.guardrailMetrics).toContain("p95_latency");
+    expect(previews[0]).not.toHaveProperty("fixturePath");
     expect(previews[0]?.steps).toHaveLength(4);
   });
 

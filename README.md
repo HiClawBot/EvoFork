@@ -334,11 +334,13 @@ pnpm --filter @evofork/website dev -- --host 127.0.0.1 --port 4173
 ```
 
 The independent bilingual website lives in `apps/website` and is published from
-`apps/website/dist` through the GitHub Pages workflow. See
-[Public Site and GitHub Pages](./docs/PUBLIC_SITE.md).
+`apps/website/dist` through the GitHub Pages workflow. The website includes a
+Scenario Player that renders the governed signal -> RFC -> Eval -> route flow
+from versioned fixtures. See [Public Site and GitHub Pages](./docs/PUBLIC_SITE.md).
 
-Application scenario models live in `examples/scenarios` and are used by the
-public website build. See [Scenario Models](./docs/SCENARIOS.md).
+Application scenario models live in `examples/scenarios`, feed the public
+website build, and expose safe demo fields such as signals, allowed changes,
+blocked changes, and guardrail metrics. See [Scenario Models](./docs/SCENARIOS.md).
 
 Optional PostgreSQL schema preview:
 
@@ -789,10 +791,12 @@ pnpm --filter @evofork/website dev -- --host 127.0.0.1 --port 4173
 ```
 
 独立双语官网位于 `apps/website`，并通过 GitHub Pages workflow 从
-`apps/website/dist` 发布。详见
+`apps/website/dist` 发布。官网包含 Scenario Player，会从版本化 fixtures 渲染
+signal -> RFC -> Eval -> route 的治理流程。详见
 [Public Site and GitHub Pages](./docs/PUBLIC_SITE.md)。
 
-应用场景模型位于 `examples/scenarios`，并由公开官网构建时使用。详见
+应用场景模型位于 `examples/scenarios`，并由公开官网构建时使用。它们会公开安全
+demo 字段，例如信号、允许变更、阻止变更和 guardrail 指标。详见
 [Scenario Models](./docs/SCENARIOS.md)。
 
 可选 PostgreSQL schema 预览：

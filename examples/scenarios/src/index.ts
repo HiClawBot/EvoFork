@@ -33,12 +33,18 @@ export type EvoScenarioModel = {
 
 export type PublicScenarioPreview = {
   id: string;
+  title: LocalizedText;
   surfaceId: string;
+  surfaceType: EvoScenarioModel["surfaceType"];
   branch: string;
   audience: LocalizedText;
   problem: LocalizedText;
+  signalExamples: LocalizedText[];
+  allowedChanges: string[];
+  blockedChanges: string[];
   evalGate: LocalizedText;
   metric: string;
+  guardrailMetrics: string[];
   steps: ScenarioStep[];
 };
 
@@ -186,11 +192,17 @@ export const toPublicScenarioPreviews = (
 ): PublicScenarioPreview[] =>
   models.map((model) => ({
     id: model.id,
+    title: model.title,
     surfaceId: model.surfaceId,
+    surfaceType: model.surfaceType,
     branch: model.branch,
     audience: model.audience,
     problem: model.problem,
+    signalExamples: model.signalExamples,
+    allowedChanges: model.allowedChanges,
+    blockedChanges: model.blockedChanges,
     evalGate: model.evalGate,
     metric: model.primaryMetric,
+    guardrailMetrics: model.guardrailMetrics,
     steps: model.demoFlow
   }));

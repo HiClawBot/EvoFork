@@ -1,4 +1,4 @@
-# EvoFork v0.4.2 Release Checklist
+# EvoFork v0.4.3 Release Checklist
 
 Run from the repository root before publishing a GitHub release.
 
@@ -54,6 +54,8 @@ Local demo smoke path:
 16. Revert the branch and confirm routing falls back to `default`.
 17. Run `pnpm --filter @evofork/website dev -- --host 127.0.0.1 --port 4173`.
 18. Open `http://127.0.0.1:4173` and confirm the bilingual public site renders.
+19. Confirm the Scenario Player switches scenario tabs and signal/RFC/Eval/route
+    steps without horizontal overflow on desktop or mobile viewports.
 
 Release notes:
 
@@ -76,6 +78,6 @@ Release notes:
   manifest scope.
 - The public website is static, bilingual, and deployed from `apps/website/dist`
   through GitHub Pages.
-- Scenario previews are generated from versioned fixtures in
+- Scenario Player data is generated from versioned fixtures in
   `examples/scenarios`.
 - `.env`, `.next`, `.turbo`, `dist`, and local `.evofork` state must not be committed.

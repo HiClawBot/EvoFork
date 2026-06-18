@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.4.3 - Interactive Scenario Player
+
+The public website now includes an interactive Scenario Player backed by the
+versioned scenario fixtures.
+
+### Added
+
+- Scenario Player UI for switching between scenario surfaces and signal, RFC,
+  Eval Gate, and route steps.
+- Public-safe scenario projection fields for titles, surface type, signal
+  examples, allowed changes, blocked changes, and guardrail metrics.
+- Website player state tests for scenario selection, step selection, and
+  fallback behavior.
+- Loading, empty, and error states for website scenario data.
+
+### Changed
+
+- Website scenario copy now describes the interactive player rather than static
+  previews.
+- Website builds now stamp the visible version label and meta tag from the root
+  `package.json`.
+- Root validation scripts now use pnpm's native recursive runner with workspace
+  concurrency 1 to keep local release checks stable in constrained environments.
+- `pnpm verify` now runs the release checks as isolated phases instead of one
+  long shell chain.
+- Scenario, public-site, release checklist, and README docs now describe the
+  Scenario Player.
+
+### Notes
+
+The player is still a static public demo. It does not run agents, create
+patches, merge code, deploy, or route production traffic.
+
 ## v0.4.2 - Scenario Models
 
 Public scenario previews now come from versioned application scenario fixtures.
