@@ -17,6 +17,13 @@ export type ScenarioPreview = {
   problem: LocalizedText;
   evalGate: LocalizedText;
   metric: string;
+  steps: ScenarioStep[];
+};
+
+export type ScenarioStep = {
+  id: string;
+  label: LocalizedText;
+  detail: LocalizedText;
 };
 
 export const copy = {
@@ -164,62 +171,5 @@ export const loopSteps: LoopStep[] = [
       zh: "在支持 opt-out 与 fallback 的前提下解析变体。"
     },
     tone: "route"
-  }
-];
-
-export const scenarios: ScenarioPreview[] = [
-  {
-    id: "pricing",
-    surfaceId: "pricing.hero",
-    branch: "pricing.hero.new-user-clarity.v1",
-    audience: {
-      en: "New SaaS buyers",
-      zh: "首次访问 SaaS 价格页的买家"
-    },
-    problem: {
-      en: "Visitors cannot understand the difference between Basic and Pro.",
-      zh: "用户看不懂 Basic 和 Pro 的差异。"
-    },
-    evalGate: {
-      en: "Allowed: copy, layout, CTA text. Blocked: pricing amount and payment logic.",
-      zh: "允许：文案、布局、CTA。阻止：价格金额和支付逻辑。"
-    },
-    metric: "pricing_to_signup_conversion"
-  },
-  {
-    id: "docs",
-    surfaceId: "docs.quickstart",
-    branch: "docs.quickstart.developer-path.v1",
-    audience: {
-      en: "Developers evaluating a new framework",
-      zh: "评估新框架的开发者"
-    },
-    problem: {
-      en: "Readers need the local demo path before advanced architecture details.",
-      zh: "读者希望先跑通本地演示，再理解高级架构。"
-    },
-    evalGate: {
-      en: "Allowed: examples and structure. Blocked: license, security policy, secrets.",
-      zh: "允许：示例和结构。阻止：许可证、安全政策和密钥。"
-    },
-    metric: "quickstart_completion_rate"
-  },
-  {
-    id: "support",
-    surfaceId: "support.refund_policy_answer",
-    branch: "support.refund_policy_answer.clarity.v1",
-    audience: {
-      en: "Support teams reviewing AI answer quality",
-      zh: "审查 AI 回复质量的客服团队"
-    },
-    problem: {
-      en: "Support summaries show repeated confusion around refund eligibility.",
-      zh: "客服摘要显示用户反复困惑于退款资格。"
-    },
-    evalGate: {
-      en: "Allowed: answer wording and examples. Blocked: legal claims and policy changes.",
-      zh: "允许：回复措辞和示例。阻止：法律声明和政策变更。"
-    },
-    metric: "support_ticket_reopen_rate"
   }
 ];

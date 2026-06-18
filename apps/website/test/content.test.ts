@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { copy, loopSteps, scenarios } from "../src/content.js";
+import { copy, loopSteps } from "../src/content.js";
 
 describe("website content", () => {
   it("keeps public copy bilingual", () => {
@@ -20,15 +20,7 @@ describe("website content", () => {
     ]);
   });
 
-  it("previews application scenarios with manifest surfaces and safe branch names", () => {
-    expect(scenarios).toHaveLength(3);
-
-    for (const scenario of scenarios) {
-      expect(scenario.surfaceId).toContain(".");
-      expect(scenario.branch.startsWith(`${scenario.surfaceId}.`)).toBe(true);
-      expect(scenario.evalGate.en.toLowerCase()).toContain("blocked");
-      expect(scenario.evalGate.zh).toContain("阻止");
-      expect(scenario.metric).toMatch(/^[a-z0-9_]+$/);
-    }
+  it("keeps scenario copy outside the static content module", () => {
+    expect(Object.keys(copy)).not.toContain("pricing.hero");
   });
 });

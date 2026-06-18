@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "evofork.scenario/v1",
+  "id": "support-refund-answer",
+  "displayOrder": 3,
+  "title": {
+    "en": "Support refund answer clarity",
+    "zh": "客服退款回复清晰度"
+  },
+  "surfaceId": "support.refund_policy_answer",
+  "surfaceType": "llm-prompt",
+  "branch": "support.refund_policy_answer.clarity.v1",
+  "audience": {
+    "en": "Support teams reviewing AI answer quality",
+    "zh": "审查 AI 回复质量的客服团队"
+  },
+  "problem": {
+    "en": "Support summaries show repeated confusion around refund eligibility.",
+    "zh": "客服摘要显示用户反复困惑于退款资格。"
+  },
+  "signalExamples": [
+    {
+      "en": "The answer explains the policy but users still reopen tickets.",
+      "zh": "回复解释了政策，但用户仍然重复打开工单。"
+    },
+    {
+      "en": "Customers ask whether their annual plan is eligible for refund review.",
+      "zh": "客户追问年付套餐是否符合退款审核条件。"
+    }
+  ],
+  "allowedChanges": ["answer_wording", "examples", "tone"],
+  "blockedChanges": ["legal_claim", "policy_change", "payment_logic", "privacy_policy"],
+  "evalGate": {
+    "en": "Allowed: answer wording and examples. Blocked: legal claims and policy changes.",
+    "zh": "允许：回复措辞和示例。阻止：法律声明和政策变更。"
+  },
+  "primaryMetric": "support_ticket_reopen_rate",
+  "guardrailMetrics": ["escalation_rate", "refund_policy_complaint_rate"],
+  "demoFlow": [
+    {
+      "id": "signal",
+      "label": {
+        "en": "Support summary",
+        "zh": "客服摘要"
+      },
+      "detail": {
+        "en": "Ticket summaries point to repeated eligibility confusion.",
+        "zh": "工单摘要指向反复出现的资格理解问题。"
+      }
+    },
+    {
+      "id": "rfc",
+      "label": {
+        "en": "RFC hypothesis",
+        "zh": "RFC 假设"
+      },
+      "detail": {
+        "en": "Clearer answer framing should reduce reopened tickets.",
+        "zh": "更清晰的回复结构应减少重复打开工单。"
+      }
+    },
+    {
+      "id": "eval",
+      "label": {
+        "en": "Eval boundary",
+        "zh": "Eval 边界"
+      },
+      "detail": {
+        "en": "The branch cannot change policy, legal claims, or payment logic.",
+        "zh": "该分支不能修改政策、法律声明或支付逻辑。"
+      }
+    },
+    {
+      "id": "route",
+      "label": {
+        "en": "Answer variant",
+        "zh": "回复变体"
+      },
+      "detail": {
+        "en": "Support answer variants remain reviewable and reversible.",
+        "zh": "客服回复变体保持可审查和可回滚。"
+      }
+    }
+  ]
+}

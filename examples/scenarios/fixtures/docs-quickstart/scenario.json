@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "evofork.scenario/v1",
+  "id": "docs-quickstart",
+  "displayOrder": 2,
+  "title": {
+    "en": "Documentation quickstart path",
+    "zh": "文档快速开始路径"
+  },
+  "surfaceId": "docs.quickstart",
+  "surfaceType": "markdown-doc",
+  "branch": "docs.quickstart.developer-path.v1",
+  "audience": {
+    "en": "Developers evaluating a new framework",
+    "zh": "评估新框架的开发者"
+  },
+  "problem": {
+    "en": "Readers need the local demo path before advanced architecture details.",
+    "zh": "读者希望先跑通本地演示，再理解高级架构。"
+  },
+  "signalExamples": [
+    {
+      "en": "I want the shortest path to run the local demo.",
+      "zh": "我想先看到最短路径跑通本地 demo。"
+    },
+    {
+      "en": "Architecture details are useful, but I need runnable commands first.",
+      "zh": "架构细节有用，但我需要先看到可运行命令。"
+    }
+  ],
+  "allowedChanges": ["examples", "structure", "copy"],
+  "blockedChanges": ["license", "security_policy", "secrets", "legal_claim"],
+  "evalGate": {
+    "en": "Allowed: examples and structure. Blocked: license, security policy, secrets.",
+    "zh": "允许：示例和结构。阻止：许可证、安全政策和密钥。"
+  },
+  "primaryMetric": "quickstart_completion_rate",
+  "guardrailMetrics": ["docs_bounce_rate", "support_ticket_rate"],
+  "demoFlow": [
+    {
+      "id": "signal",
+      "label": {
+        "en": "Docs signal",
+        "zh": "文档信号"
+      },
+      "detail": {
+        "en": "Readers ask for runnable commands earlier in the page.",
+        "zh": "读者希望页面更早出现可运行命令。"
+      }
+    },
+    {
+      "id": "rfc",
+      "label": {
+        "en": "RFC hypothesis",
+        "zh": "RFC 假设"
+      },
+      "detail": {
+        "en": "A local-first command path should improve quickstart completion.",
+        "zh": "本地优先命令路径应提升快速开始完成率。"
+      }
+    },
+    {
+      "id": "eval",
+      "label": {
+        "en": "Eval boundary",
+        "zh": "Eval 边界"
+      },
+      "detail": {
+        "en": "Docs changes cannot alter license, security policy, or secrets guidance.",
+        "zh": "文档变更不能修改许可证、安全政策或密钥指导。"
+      }
+    },
+    {
+      "id": "route",
+      "label": {
+        "en": "Docs branch",
+        "zh": "文档分支"
+      },
+      "detail": {
+        "en": "The branch can be reviewed as a markdown surface before promotion.",
+        "zh": "该分支可作为 markdown surface 审查后再 promotion。"
+      }
+    }
+  ]
+}

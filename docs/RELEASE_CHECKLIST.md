@@ -1,4 +1,4 @@
-# EvoFork v0.4.1 Release Checklist
+# EvoFork v0.4.2 Release Checklist
 
 Run from the repository root before publishing a GitHub release.
 
@@ -22,6 +22,7 @@ pnpm evo observe canary --input .evofork/canary.json --json
 pnpm --filter @evofork/adapter-opentelemetry test
 pnpm --filter @evofork/adapter-argo-rollouts test
 pnpm --filter @evofork/website test
+pnpm --filter @evofork/scenarios test
 pnpm evo argo plan --surface pricing.hero --branch-id br_demo_seed --weight 25 --workload demo-nextjs --stable-service demo-nextjs-stable --canary-service demo-nextjs-canary --approved --json
 pnpm evo branch create --surface pricing.hero --branch pricing.hero.release-check.v1 --state .evofork/release-branch.json
 pnpm evo branch approve br_local_001 --state .evofork/release-branch.json
@@ -75,4 +76,6 @@ Release notes:
   manifest scope.
 - The public website is static, bilingual, and deployed from `apps/website/dist`
   through GitHub Pages.
+- Scenario previews are generated from versioned fixtures in
+  `examples/scenarios`.
 - `.env`, `.next`, `.turbo`, `dist`, and local `.evofork` state must not be committed.
