@@ -137,6 +137,19 @@ The input builder computes baseline and canary averages for metrics that have
 both cohorts. It does not send telemetry to third parties and does not mutate
 branch state or traffic.
 
+## OpenTelemetry Bridge
+
+`@evofork/adapter-opentelemetry` can convert local OpenTelemetry-style metric
+points into the same canary input shape:
+
+```ts
+import { analyzeOtelCanary } from "@evofork/adapter-opentelemetry";
+```
+
+The bridge is local-only. It does not start a collector, export telemetry, or
+send data to third parties. See
+[OpenTelemetry Adapter](./OPENTELEMETRY_ADAPTER.md).
+
 ## Safety Boundaries
 
 - `surfaceId` must exist in the manifest.
@@ -275,6 +288,18 @@ metric event 是用于构建 observer input 的本地数据：
 
 input builder 会对同时具有 baseline 和 canary cohort 的指标计算平均值。
 它不会向第三方发送遥测，也不会修改 branch state 或流量。
+
+## OpenTelemetry Bridge
+
+`@evofork/adapter-opentelemetry` 可以把本地 OpenTelemetry 风格的 metric
+points 转换成同样的 canary input 形状：
+
+```ts
+import { analyzeOtelCanary } from "@evofork/adapter-opentelemetry";
+```
+
+这个 bridge 仅限本地使用。它不会启动 collector、导出 telemetry，或向第三方
+发送数据。详见 [OpenTelemetry Adapter](./OPENTELEMETRY_ADAPTER.md)。
 
 ## 安全边界
 

@@ -249,6 +249,10 @@ pnpm evo observe input \
 pnpm evo observe canary --input .evofork/canary.json --json
 ```
 
+For OpenTelemetry-style local metric points, use the local-only
+`@evofork/adapter-opentelemetry` bridge. It does not export telemetry or require
+an external collector. See [OpenTelemetry Adapter](./docs/OPENTELEMETRY_ADAPTER.md).
+
 Manage local branch state without production credentials:
 
 ```bash
@@ -662,6 +666,10 @@ pnpm evo observe input \
   --json > .evofork/canary.json
 pnpm evo observe canary --input .evofork/canary.json --json
 ```
+
+对于 OpenTelemetry 风格的本地 metric points，可以使用 local-only 的
+`@evofork/adapter-opentelemetry` bridge。它不会导出 telemetry，也不需要外部
+collector。详见 [OpenTelemetry Adapter](./docs/OPENTELEMETRY_ADAPTER.md)。
 
 不使用生产凭证也可以管理本地 branch 状态：
 

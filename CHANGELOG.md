@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.3.4 - OpenTelemetry Observer Bridge
+
+OpenTelemetry-style local metric points can now feed Rollout Observer.
+
+### Added
+
+- `@evofork/adapter-opentelemetry` now converts local OTel-style metric points
+  into EvoFork `metric_observed` events.
+- Adapter helpers can build Rollout Observer canary input and analyze a canary
+  directly from local metric points.
+- Bilingual OpenTelemetry adapter documentation.
+- Tests for point conversion, input building, and canary analysis.
+
+### Changed
+
+- README, Rollout Observer docs, and release checklist document the local-only
+  OTel observer bridge.
+- Workspace package versions are bumped to `0.3.4`.
+
+### Notes
+
+This is a local bridge only. It does not start a collector, export telemetry,
+send data to third parties, deploy, or mutate branch state.
+
 ## v0.3.3 - Policy-Gated Promotion and Sunset
 
 Branch promotion and sunset now have explicit governed workflows.
